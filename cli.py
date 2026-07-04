@@ -240,6 +240,15 @@ def cmd_daily_run():
         log.info(f"update: {updated}")
     except Exception as e:
         log.error(f"update failed: {e}")
+    
+    # 自动检查开奖核对
+    try:
+        from core.verify import check_and_update
+        vr = check_and_update()
+        if vr.get("new_draw"):
+            log.info(f"new draw verified: {vr['hit_count']} hits")
+    except Exception as e:
+        log.error(f"verify failed: {e}")
     if not quiet:
         print(json.dumps({"step": "update", "status": "ok"}))
     try:
@@ -415,7 +424,7 @@ def main():
         "kline": cmd_kline, "backtest": cmd_backtest, "ev": cmd_ev,
         "recommend": cmd_recommend, "chart": cmd_chart, "analyze": cmd_analyze,
         "gui": cmd_gui, "daily-run": cmd_daily_run, "report": cmd_report, "compare": cmd_compare, "predict": cmd_predict, "strategies": cmd_strategies,
-        "cooccur": cmd_cooccur, "pattern": cmd_pattern, "accuracy": cmd_accuracy, "weekly": cmd_weekly, "backup": cmd_backup, "missing-chart": cmd_missing_chart, "compare-versions": cmd_compare_versions, "tune": cmd_tune, "rotate": cmd_rotate,
+        "cooccur": cmd_cooccur, "pattern": cmd_pattern, "accuracy": cmd_accuracy, "weekly": cmd_weekly, "backup": cmd_backup, "missing-chart": cmd_missing_chart, "compare-versions": cmd_compare_versions, "tune": cmd_tune, "rotate": cmd_rotate, "verify": cmd_verify, "feedback": cmd_feedback,
     }
 
     if cmd in ("--help", "-h"):
@@ -507,4 +516,45 @@ def cmd_rotate():
     import json as _json_mod
     print(_json_mod.dumps({"frequencies": warnings[:6], "total_history": len(h)}, ensure_ascii=False, indent=2))
 
+    main()
+
+def cmd_verify():
+    """📊 开奖核对: 抓开奖→核对→推送"""
+    from core.verify import check_and_update
+    import json as _jm
+    result = check_and_update()
+    if "--human" in sys.argv:
+        print(result.get("report", "核对完成"))
+    else:
+        print(_jm.dumps(result, ensure_ascii=False, indent=2))
+
+def cmd_feedback():
+    """🔄 策略反馈"""
+    from core.history import get_history
+    from core.database import get_db
+    import json as _jm
+    h = get_history(50)
+    stats = {"hot": {"total": 0, "hits": 0}, "cold": {"total": 0, "hits": 0}, "balanced": {"total": 0, "hits": 0}}
+    conn = get_db()
+    for r in h:
+        nums = _jm.loads(r["numbers"]) if isinstance(r["numbers"], str) else r["numbers"]
+        actual = conn.execute("SELECT n1,n2,n3,n4,n5,n6,extra FROM draws ORDER BY draw_date DESC LIMIT 1").fetchone()
+        if actual:
+            an = {actual[c] for c in ["n1","n2","n3","n4","n5","n6","extra"]}
+            hit = len(set(nums) & an)
+            key = "hot" if r.get("confidence") == "高" else "balanced"
+            stats[key]["total"] += 1
+            if hit >= 1: stats[key]["hits"] += 1
+    conn.close()
+    for k in stats:
+        t = stats[k]["total"]
+        stats[k]["rate"] = f"{stats[k]['hits']/max(t,1)*100:.0f}%"
+    if "--human" in sys.argv:
+        print("📊 策略表现")
+        for k, v in stats.items():
+            print(f"  {k}: {v['rate']} ({v['hits']}/{v['total']})")
+    else:
+        print(_jm.dumps(stats, ensure_ascii=False, indent=2))
+
+if __name__ == "__main__":
     main()
