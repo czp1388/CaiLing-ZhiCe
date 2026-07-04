@@ -122,9 +122,9 @@ def get_recommendation(seed=42):
     # 平均偏差 >= 0% = 不低于随机 → 中
     # 平均偏差 < 0% = 低于随机 → 低
     avg_deviation = round(avg_hit_rate - expected_rate, 1)
-    if avg_deviation >= 3:
+    if avg_hit_rate >= 15.0:
         confidence = "高"
-    elif avg_deviation >= 0:
+    elif avg_hit_rate >= 14.0:
         confidence = "中"
     else:
         confidence = "低"
@@ -163,9 +163,9 @@ def get_recommendation(seed=42):
         "avg_deviation": f"{avg_deviation:+.1f}%",
         "confidence": confidence,
         "confidence_standard": {
-            "高": f"平均偏差 >= +3% (即平均开出率 >= {expected_rate + 3}%)",
-            "中": f"平均偏差 >= 0% (即平均开出率 >= {expected_rate}%)",
-            "低": f"平均偏差 < 0% (即平均开出率 < {expected_rate}%)",
+            "高": "平均开出率 >= 15.0% (Top热号水平)",
+            "中": "平均开出率 >= 14.0% (接近预期14.3%)",
+            "低": "平均开出率 < 14.0% (低于随机)",
         },
         "strategy": " + ".join(strategies) if strategies else "综合平衡",
         "stats": f"基于{total}期历史数据, 热{hot_count}冷{cold_count}胆{drag_count}",

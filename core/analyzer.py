@@ -61,7 +61,7 @@ def missing_stats(window=100):
     missing = {}
     for num in range(1, 50):
         if num in appeared:
-            last_idx = min(appeared[num])  # 最近的期数索引（DESC排序）
+            last_idx = max(appeared[num])  # 最近的期数索引（DESC排序）
             missing[num] = last_idx
         else:
             missing[num] = window
