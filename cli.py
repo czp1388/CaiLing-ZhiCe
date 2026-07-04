@@ -137,7 +137,11 @@ def cmd_ev():
 def cmd_recommend():
     """AI推荐（核心入口）"""
     from core.recommender import get_recommendation
-    result = get_recommendation()
+    mode = "normal"
+    for i, a in enumerate(sys.argv):
+        if a == "--mode" and i + 1 < len(sys.argv):
+            mode = sys.argv[i + 1]
+    result = get_recommendation(mode=mode)
 
     if _is_human():
         print(f"🎯 彩灵·智策 AI推荐")
@@ -282,7 +286,11 @@ def cmd_daily_run():
                     if nd['omission'] > 5: tags.append(f"遗漏{nd['omission']}期")
                     if nd['deviation']: tags.append(nd['deviation'])
                     reasons_short.append(f"#{nd['number']} {' '.join(tags)}")
-                text = f"🎯 彩灵智策 · {rec['confidence']} \n推荐: {nums_display}\n{rec['avg_hit_rate']} | {' | '.join(reasons_short)}"
+                if mode == "5drag" and "cores" in result:
+                    cores_display = " ".join(str(c) for c in result["cores"])
+                    text = f"🎯 彩灵·智策 五膽拖\n胆码: {cores_display}\n拖码: 1-49(全拖)\n信心: {result.get('confidence','')}\n回测中3胆: {result.get('cores_pct_3','?')}%\n策略: {result.get('strategy','')}"
+                else:
+                    text = f"🎯 彩灵智策 · {rec['confidence']} \n推荐: {nums_display}\n{rec['avg_hit_rate']} | {' | '.join(reasons_short)}"
                 req.post(f"https://api.telegram.org/bot{token}/sendMessage",
                         json={"chat_id": chat, "text": text}, timeout=10)
                 log.info("telegram pushed")

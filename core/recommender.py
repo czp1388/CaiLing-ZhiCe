@@ -21,9 +21,12 @@ from core.analyzer import hot_cold_numbers, missing_stats
 from core.kline import build_kline_data
 from core.backtest import auto_backtest
 from core.predictor import get_cold_alerts, predict_next_range, predict_hot_zones
+import json as _jmod
+with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "output", "backtest_drag.json")) as _f:
+    _BT = _jmod.load(_f)
 
 
-def get_recommendation(seed=42, weights=None):
+def get_recommendation(seed=42, weights=None, mode="5drag"):
     """综合所有分析，输出一个号码推荐
 
     固定随机种子(seed=42)，确保同样输入产出同样结果。
@@ -63,6 +66,28 @@ def get_recommendation(seed=42, weights=None):
                                "hot_rank": hot_idx + 1, "omission": miss_val,
                                "hit_rate": s["hit_rate"]})
     hot_scores.sort(key=lambda x: -x["score"])
+
+    # 根据模式输出
+    if mode == "5drag":
+        # 五膽拖：取前5个做胆码
+        drag_cores_list = [s["number"] for s in hot_scores[:5]]
+        while len(drag_cores_list) < 5:
+            n = random.randint(1, 49)
+            if n not in drag_cores_list:
+                drag_cores_list.append(n)
+        # 胆码回测数据
+        return {"mode": "5drag", "cores": sorted(drag_cores_list[:5]),
+                "confidence": "高" if len(drag_cores_list) == 5 else "中",
+                "backtest": "胆码中3+概率" + str(_BT["cores_pct_3"]) + "%",
+                "cores_pct_3": _BT['cores_pct_3'],
+                "cores_pct_4": _BT['cores_pct_4'],
+                "six_pct_3": _BT['six_pct_3'],
+                "strategy": "五膽拖·热号Top5",
+                "reason": "胆码基于热号Top5综合评分",
+                "numbers": sorted(drag_cores_list[:5]),
+                "number_details": [{"number": s["number"], "hit_rate": s["hit_rate"], "omission": s["omission"]} for s in hot_scores[:5]],
+                "avg_hit_rate": _BT['six_pct_3'],
+                }
 
     # 4. 冷号反弹预警
     cold_alerts = get_cold_alerts(20)
