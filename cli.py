@@ -415,7 +415,7 @@ def main():
         "kline": cmd_kline, "backtest": cmd_backtest, "ev": cmd_ev,
         "recommend": cmd_recommend, "chart": cmd_chart, "analyze": cmd_analyze,
         "gui": cmd_gui, "daily-run": cmd_daily_run, "report": cmd_report, "compare": cmd_compare, "predict": cmd_predict, "strategies": cmd_strategies,
-        "cooccur": cmd_cooccur, "pattern": cmd_pattern, "accuracy": cmd_accuracy, "weekly": cmd_weekly, "backup": cmd_backup, "missing-chart": cmd_missing_chart,
+        "cooccur": cmd_cooccur, "pattern": cmd_pattern, "accuracy": cmd_accuracy, "weekly": cmd_weekly, "backup": cmd_backup, "missing-chart": cmd_missing_chart, "compare-versions": cmd_compare_versions, "tune": cmd_tune, "rotate": cmd_rotate,
     }
 
     if cmd in ("--help", "-h"):
@@ -427,8 +427,84 @@ def main():
 
 
 
-if __name__ == "__main__":
+
+def cmd_compare_versions():
+    """📊 版本对比回测"""
+    from core.version_compare import compare_versions
+    r = compare_versions(30)
+    if "--human" in sys.argv:
+        print(f"{'版本':>8s} {'命中':>6s} {'总数':>6s} {'命中率':>8s}")
+        print("-" * 35)
+        for v, d in sorted(r.items()):
+            print(f"{v:>8s} {d['hits']:>6d} {d['total']:>6d} {d['rate']:>8s}")
+    else:
+        _json(r)
+
+
+def cmd_tune():
+    """🔧 自动调参-网格搜索最优权重"""
+    from core.tuner import grid_search
+    result = grid_search(30)
+    if "--human" in sys.argv:
+        print(f"最优权重: {result.get('weights', {})}")
+        print(f"命中率: {result.get('rate_pct', '?')}")
+    else:
+        _json(result)
+
+
+def cmd_rotate():
+    """🔄 号码去重与轮换建议"""
+    from core.history import get_history
+    h = get_history(10)
+    from collections import Counter
+    all_nums = []
+    for r in h:
+        nums = __import__('json').loads(r["numbers"]) if isinstance(r["numbers"], str) else r["numbers"]
+        all_nums.extend(nums)
+    freq = Counter(all_nums)
+    warnings = [{"number": n, "count": c, "suggestion": "建议轮换" if c >= 3 else ""} for n, c in freq.most_common(10)]
+    import json as _json_mod
+    print(_json_mod.dumps({"frequencies": warnings[:6], "total_history": len(h)}, ensure_ascii=False, indent=2))
+
     main()
 
-if __name__ == "__main__":
+
+def cmd_compare_versions():
+    """📊 版本对比回测"""
+    from core.version_compare import compare_versions
+    r = compare_versions(30)
+    if "--human" in sys.argv:
+        print(f"{'版本':>8s} {'命中':>6s} {'总数':>6s} {'命中率':>8s}")
+        print("-" * 35)
+        for v, d in sorted(r.items()):
+            print(f"{v:>8s} {d['hits']:>6d} {d['total']:>6d} {d['rate']:>8s}")
+    else:
+        _json(r)
+
+
+def cmd_tune():
+    """🔧 自动调参-网格搜索最优权重"""
+    from core.tuner import grid_search
+    result = grid_search(30)
+    if "--human" in sys.argv:
+        print(f"最优权重: {result.get('weights', {})}")
+        print(f"命中率: {result.get('rate_pct', '?')}")
+    else:
+        _json(result)
+
+
+def cmd_rotate():
+    """🔄 号码去重与轮换建议"""
+    from core.history import get_history
+    h = get_history(10)
+    from collections import Counter
+    all_nums = []
+    for r in h:
+        nums = __import__('json').loads(r["numbers"]) if isinstance(r["numbers"], str) else r["numbers"]
+        all_nums.extend(nums)
+    freq = Counter(all_nums)
+    warnings = [{"number": n, "count": c, "suggestion": "建议轮换" if c >= 3 else ""} for n, c in freq.most_common(10)]
+    import json as _json_mod
+    print(_json_mod.dumps({"frequencies": warnings[:6], "total_history": len(h)}, ensure_ascii=False, indent=2))
+
     main()

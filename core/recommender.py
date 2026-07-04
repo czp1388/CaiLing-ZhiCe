@@ -23,7 +23,7 @@ from core.backtest import auto_backtest
 from core.predictor import get_cold_alerts, predict_next_range, predict_hot_zones
 
 
-def get_recommendation(seed=42):
+def get_recommendation(seed=42, weights=None):
     """综合所有分析，输出一个号码推荐
 
     固定随机种子(seed=42)，确保同样输入产出同样结果。
@@ -57,7 +57,8 @@ def get_recommendation(seed=42):
             hit_rate = float(s["hit_rate"].replace("%", ""))
             kdj_bonus = kdj_scores.get(num, 0)
             cold_bonus = 5 if num in cold_alert_nums else 0
-            score = (15 - hot_idx) * 3 + miss_val * 0.5 + hit_rate * 0.3 + kdj_bonus + cold_bonus
+            w = weights or {}
+            score = (15 - hot_idx) * w.get("hot", 3) + miss_val * w.get("miss", 0.5) + hit_rate * 0.3 + kdj_bonus + cold_bonus
             hot_scores.append({"number": num, "score": round(score, 1),
                                "hot_rank": hot_idx + 1, "omission": miss_val,
                                "hit_rate": s["hit_rate"]})

@@ -27,7 +27,10 @@ def accuracy_report():
         "draws_with_hits": total_matches,
         "hit_rate": f"{total_matches/max(total_recs,1)*100:.1f}%",
         "random_baseline": "14.3% (7/49)",
-        "per_draw": per_draw[-10:]
+        "per_draw": per_draw[-10:],
+    "random_baseline": "14.3% (每期7/49≈14.3%)",
+    "recommendation_frequency": {},
+    "dup_warning": "",
     }
 
 if __name__ == "__main__":
