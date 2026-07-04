@@ -33,6 +33,19 @@ CREATE INDEX IF NOT EXISTS idx_draw_no ON draws(draw_no);
 """
 
 
+
+import shutil
+def backup_db():
+    """自动备份数据库到 backups/ 目录"""
+    backup_dir = os.path.join(BASE, "backups")
+    os.makedirs(backup_dir, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_path = os.path.join(backup_dir, f"marksix_{timestamp}.db")
+    if os.path.exists(DB_PATH):
+        shutil.copy2(DB_PATH, backup_path)
+        return {"status": "ok", "backup": backup_path}
+    return {"error": "数据库不存在"}
+
 def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row

@@ -362,6 +362,48 @@ def cmd_pattern():
     _json(result)
 
 
+
+def cmd_accuracy():
+    """📊 推荐准确率统计"""
+    from core.stats import accuracy_report
+    _json(accuracy_report())
+
+def cmd_weekly():
+    """📅 周报"""
+    from core.weekly import generate_weekly
+    if "--human" in sys.argv:
+        w = generate_weekly()
+        print(f"📅 周报: {w['period']}")
+        print(f"推荐次数: {w['total_recommendations']}")
+        print(f"本周推荐: {w['weekly_pick']}")
+        print(f"冷号预警: {w['cold_alerts']}")
+    else:
+        _json(generate_weekly())
+
+def cmd_backup():
+    """💾 备份数据库"""
+    from core.database import backup_db
+    _json(backup_db())
+
+def cmd_missing_chart():
+    """📈 遗漏值走势图/区间热度图"""
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--number", type=int, default=28)
+    parser.add_argument("--window", type=int, default=100)
+    args, _ = parser.parse_known_args(sys.argv[2:])
+    from core.chart import render_omission_chart, render_zone_heatmap
+    base = os.path.dirname(os.path.abspath(__file__))
+    if "--zone" in sys.argv:
+        html = render_zone_heatmap(args.window)
+        path = os.path.join(base, "output", "zones.html")
+    else:
+        html = render_omission_chart(args.number, args.window)
+        path = os.path.join(base, "output", f"omission_{args.number}.html")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(html)
+    _json({"status": "ok", "file": path})
 def main():
     if len(sys.argv) < 2:
         print(__doc__)
@@ -373,7 +415,7 @@ def main():
         "kline": cmd_kline, "backtest": cmd_backtest, "ev": cmd_ev,
         "recommend": cmd_recommend, "chart": cmd_chart, "analyze": cmd_analyze,
         "gui": cmd_gui, "daily-run": cmd_daily_run, "report": cmd_report, "compare": cmd_compare, "predict": cmd_predict, "strategies": cmd_strategies,
-        "cooccur": cmd_cooccur, "pattern": cmd_pattern,
+        "cooccur": cmd_cooccur, "pattern": cmd_pattern, "accuracy": cmd_accuracy, "weekly": cmd_weekly, "backup": cmd_backup, "missing-chart": cmd_missing_chart,
     }
 
     if cmd in ("--help", "-h"):
@@ -383,6 +425,10 @@ def main():
     else:
         _json({"error": f"未知命令: {cmd}"})
 
+
+
+if __name__ == "__main__":
+    main()
 
 if __name__ == "__main__":
     main()

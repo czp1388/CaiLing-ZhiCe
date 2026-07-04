@@ -231,6 +231,50 @@ Plotly.newPlot('chart', data.data, data.layout, {{responsive: true}});
     return html
 
 
+
+
+def render_omission_chart(number, window=100):
+    """生成单号码遗漏值走势折线图HTML"""
+    from core.kline import build_kline_data
+    data = build_kline_data(number, window)
+    if "error" in data: return f"<h3>❌ {data['error']}</h3>"
+    dates = [s["date"] for s in data["kline"]]
+    omit = [s["omission"] for s in data["kline"]]
+    import json
+    fig = {"data": [{"type": "scatter", "mode": "lines+markers", "x": dates, "y": omit,
+                     "name": f"号码{number}遗漏值", "line": {"color": "#ffd700", "width": 2},
+                     "marker": {"color": "#ef5350", "size": 3},
+                     "hovertemplate": "%{x}<br>遗漏: %{y}期<extra></extra>"}],
+           "layout": {"title": f"号码{number} 遗漏值走势", "xaxis": {"rangeslider": {"visible": True}},
+                      "yaxis": {"title": "遗漏值"}, "height": 400, "template": "plotly_dark",
+                      "hovermode": "x unified"}}
+    html = f'<!DOCTYPE html><html><head><meta charset="utf-8"><script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script></head><body><div id="c"></div><script>var d={json.dumps(fig)};Plotly.newPlot("c",d.data,d.layout,{{responsive:true}})</script></body></html>'
+    return html
+
+
+def render_zone_heatmap(window=50):
+    """生成区间热度图HTML"""
+    from core.predictor import predict_hot_zones
+    from core.database import get_db
+    conn = get_db()
+    rows = conn.execute("SELECT n1,n2,n3,n4,n5,n6,extra FROM draws ORDER BY draw_date DESC LIMIT ?", (window,)).fetchall()
+    conn.close()
+    zones = {"1-12": 0, "13-24": 0, "25-36": 0, "37-49": 0}
+    for r in rows:
+        for n in [r[c] for c in ["n1","n2","n3","n4","n5","n6","extra"]]:
+            if n <= 12: zones["1-12"] += 1
+            elif n <= 24: zones["13-24"] += 1
+            elif n <= 36: zones["25-36"] += 1
+            else: zones["37-49"] += 1
+    labels, values = list(zones.keys()), list(zones.values())
+    import json
+    fig = {"data": [{"type": "bar", "x": labels, "y": values, "marker": {"color": ["#ffd700","#ef5350","#4caf50","#42a5f5"]},
+                     "hovertemplate": "%{x}: %{y}次<extra></extra>"}],
+           "layout": {"title": f"号码区间热度 (最近{window}期)", "yaxis": {"title": "出现次数"}, "height": 350,
+                      "template": "plotly_dark", "hovermode": "x"}}
+    html = f'<!DOCTYPE html><html><head><meta charset="utf-8"><script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script></head><body><div id="c"></div><script>var d={json.dumps(fig)};Plotly.newPlot("c",d.data,d.layout,{{responsive:true}})</script></body></html>'
+    return html
+
 def save_kline_chart(number, window=200, indicators=None, output_dir=None):
     """保存K线图到HTML文件"""
     if output_dir is None:

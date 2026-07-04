@@ -14,6 +14,7 @@ def save_recommendation(rec):
 
 def get_history(limit=30):
     conn = get_db()
+    conn.execute("CREATE TABLE IF NOT EXISTS recommendations (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT, numbers TEXT, confidence TEXT, avg_hit_rate TEXT, strategy TEXT)")
     rows = conn.execute("SELECT * FROM recommendations ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
     conn.close()
     return [dict(r) for r in rows]

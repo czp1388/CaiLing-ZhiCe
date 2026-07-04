@@ -83,8 +83,12 @@ class MainWindow(QMainWindow):
         self.reason_txt = QTextEdit()
         self.reason_txt.setReadOnly(True)
         self.reason_txt.setMaximumWidth(350)
-        self.reason_txt.setStyleSheet(f"background:{DARK_BG};color:{TEXT};border:1px solid #333;border-radius:4px;padding:8px")
+        self.reason_txt.setStyleSheet(f"background:{DARK_BG};color:{TEXT};border:1px solid #333;border-radius:4px;padding:8px;font-size:12px")
         rl.addWidget(self.reason_txt)
+        
+        self.hit_label = QLabel("📊 历史命中: 加载中...")
+        self.hit_label.setStyleSheet(f"color:{GREEN};font-size:11px;padding:4px")
+        rl.addWidget(self.hit_label)
         btn_r = QPushButton("🔄 刷新推荐")
         btn_r.setMinimumHeight(40)
         btn_r.setStyleSheet(f"background:{RED};color:white;font-size:14px;font-weight:bold;border:none;border-radius:6px")
@@ -121,6 +125,12 @@ class MainWindow(QMainWindow):
                 f'{rec.get("avg_hit_rate", "")} / {rec.get("expected_rate", "")}'
             )
             self.reason_txt.setText(rec.get("reason", ""))
+            try:
+                from core.stats import accuracy_report
+                ar = accuracy_report()
+                self.hit_label.setText(f"📊 推荐{ar['total_recommendations']}次 命中率{ar['hit_rate']} (随机14.3%)")
+            except:
+                self.hit_label.setText("📊 历史命中: 数据不足")
         except Exception as e:
             self.rec_lbl.setText(f"❌ {e}")
 
