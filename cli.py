@@ -286,9 +286,9 @@ def cmd_daily_run():
                     if nd['omission'] > 5: tags.append(f"遗漏{nd['omission']}期")
                     if nd['deviation']: tags.append(nd['deviation'])
                     reasons_short.append(f"#{nd['number']} {' '.join(tags)}")
-                if mode == "5drag" and "cores" in result:
-                    cores_display = " ".join(str(c) for c in result["cores"])
-                    text = f"🎯 彩灵·智策 五膽拖\n胆码: {cores_display}\n拖码: 1-49(全拖)\n信心: {result.get('confidence','')}\n回测中3胆: {result.get('cores_pct_3','?')}%\n策略: {result.get('strategy','')}"
+                if "cores" in rec:
+                    cores_display = " ".join(str(c) for c in rec["cores"])
+                    text = f"🎯 彩灵·智策 五膽拖\n胆码: {cores_display}\n拖码: 1-49(全拖)\n信心: {rec.get('confidence','')}\n回测中3胆: {rec.get('cores_pct_3','?')}%\n策略: {rec.get('strategy','')}"
                 else:
                     text = f"🎯 彩灵智策 · {rec['confidence']} \n推荐: {nums_display}\n{rec['avg_hit_rate']} | {' | '.join(reasons_short)}"
                 req.post(f"https://api.telegram.org/bot{token}/sendMessage",

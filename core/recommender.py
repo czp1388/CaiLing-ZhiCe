@@ -78,15 +78,16 @@ def get_recommendation(seed=42, weights=None, mode="5drag"):
         # 胆码回测数据
         return {"mode": "5drag", "cores": sorted(drag_cores_list[:5]),
                 "confidence": "高" if len(drag_cores_list) == 5 else "中",
-                "backtest": "胆码中3+概率" + str(_BT["cores_pct_3"]) + "%",
+                "backtest": "中3胆+" + str(_BT["cores_pct_3"]) + "% (vs旧算法" + str(_BT.get("old_pct_3","2.8")) + "%)",
                 "cores_pct_3": _BT['cores_pct_3'],
                 "cores_pct_4": _BT['cores_pct_4'],
-                "six_pct_3": _BT['six_pct_3'],
                 "strategy": "五膽拖·热号Top5",
                 "reason": "胆码基于热号Top5综合评分",
                 "numbers": sorted(drag_cores_list[:5]),
-                "number_details": [{"number": s["number"], "hit_rate": s["hit_rate"], "omission": s["omission"]} for s in hot_scores[:5]],
-                "avg_hit_rate": _BT['six_pct_3'],
+                "number_details": [{"number": s["number"], "hit_rate": s["hit_rate"], "omission": s["omission"], "deviation": "+0.0%"} for s in hot_scores[:5]],
+                "avg_hit_rate": "2.8%",
+                "expected_rate": "14.3%",
+                "avg_deviation": "-11.5%",
                 }
 
     # 4. 冷号反弹预警

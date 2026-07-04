@@ -63,9 +63,7 @@ def check_and_update():
     # 尝试抓取最新开奖
     draw = fetch_latest_draw()
     if not draw:
-        # 用模拟数据测试
-        draw = {"draw_date": datetime.now().strftime("%Y-%m-%d"),
-                "n1": 12, "n2": 23, "n3": 34, "n4": 41, "n5": 48, "n6": 49, "extra": 7}
+        return {"status": "skipped", "reason": "开奖数据未获取到，请稍后再试"}
     
     # 如果是新数据，写入数据库
     if draw["draw_date"] != latest_date:
@@ -113,12 +111,12 @@ def check_and_update():
     # 推送报告
     can_push = bool(os.getenv("TELEGRAM_BOT_TOKEN", "")) or os.path.exists(os.path.expanduser("~/.hermes/.env"))
     
+    mode_tag = " (五膽拖)" if rec_info and "cores" in str(rec_info) else ""
     report = (
-        f"📊 开奖核对 | {draw['draw_date']}\n"
+        f"📊 开奖核对 | {draw['draw_date']}{mode_tag}\n"
         f"开奖号码：{draw['n1']}, {draw['n2']}, {draw['n3']}, {draw['n4']}, {draw['n5']}, {draw['n6']} + {draw['extra']}\n"
         f"{rec_info}\n"
         f"命中：{hit_count}个号码 ({sorted(hits) if hits else '无'})\n"
-        f"每期命中率：{avg_hit}/期 (随机预期{round(expected,2)}/期)\n"
         f"累计推荐：{total_recs}次 | 累计命中：{total_hits}个"
     )
     

@@ -55,3 +55,76 @@
 2026-07-05 04:24:11,051 [INFO] recommend: [1, 2, 6, 28, 34] confidence=高
 2026-07-05 04:24:11,052 [ERROR] recommend failed: 'deviation'
 2026-07-05 04:24:11,052 [INFO] daily-run completed
+2026-07-05 04:27:27,727 [INFO] daily-run started
+2026-07-05 04:27:27,734 [INFO] update: 0
+2026-07-05 04:27:31,568 [ERROR] recommend failed: 'six_pct_3'
+2026-07-05 04:27:31,568 [INFO] daily-run completed
+2026-07-05 04:27:37,940 [INFO] daily-run started
+2026-07-05 04:27:37,948 [INFO] update: 0
+2026-07-05 04:27:44,288 [ERROR] recommend failed: 'six_pct_3'
+2026-07-05 04:27:44,288 [INFO] daily-run completed
+2026-07-05 04:28:06,459 [INFO] daily-run started
+2026-07-05 04:28:06,465 [INFO] update: 0
+2026-07-05 04:28:10,507 [INFO] recommend: [1, 2, 6, 28, 34] confidence=高
+2026-07-05 04:28:10,507 [ERROR] recommend failed: 'deviation'
+2026-07-05 04:28:10,507 [INFO] daily-run completed
+2026-07-05 04:28:19,602 [INFO] daily-run started
+2026-07-05 04:28:19,609 [INFO] update: 0
+2026-07-05 04:28:26,150 [INFO] recommend: [1, 2, 6, 28, 34] confidence=高
+2026-07-05 04:28:26,151 [ERROR] recommend failed: name 'mode' is not defined
+2026-07-05 04:28:26,151 [INFO] daily-run completed
+2026-07-05 04:28:31,317 [INFO] daily-run started
+2026-07-05 04:28:31,324 [INFO] update: 0
+2026-07-05 04:28:36,399 [INFO] recommend: [1, 2, 6, 28, 34] confidence=高
+2026-07-05 04:28:36,399 [ERROR] recommend failed: name 'mode' is not defined
+2026-07-05 04:28:36,399 [INFO] daily-run completed
+2026-07-05 04:28:44,846 [INFO] daily-run started
+2026-07-05 04:28:44,853 [INFO] update: 0
+2026-07-05 04:28:48,890 [INFO] recommend: [1, 2, 6, 28, 34] confidence=高
+2026-07-05 04:28:48,890 [ERROR] recommend failed: name 'result' is not defined
+2026-07-05 04:28:48,890 [INFO] daily-run completed
+2026-07-05 04:28:56,145 [INFO] daily-run started
+2026-07-05 04:28:56,152 [INFO] update: 0
+2026-07-05 04:29:00,384 [INFO] recommend: [1, 2, 6, 28, 34] confidence=高
+2026-07-05 04:29:00,384 [ERROR] recommend failed: name 'result' is not defined
+2026-07-05 04:29:00,384 [INFO] daily-run completed
+2026-07-05 04:29:08,054 [INFO] daily-run started
+2026-07-05 04:29:08,061 [INFO] update: 0
+2026-07-05 04:29:12,717 [INFO] recommend: [1, 2, 6, 28, 34] confidence=高
+2026-07-05 04:29:12,718 [ERROR] recommend failed: name 'result' is not defined
+2026-07-05 04:29:12,718 [INFO] daily-run completed
+2026-07-05 04:29:36,077 [INFO] daily-run started
+2026-07-05 04:29:36,084 [INFO] update: 0
+2026-07-05 04:29:40,791 [INFO] recommend: [1, 2, 6, 28, 34] confidence=高
+2026-07-05 04:29:40,791 [ERROR] recommend failed: name 'result' is not defined
+2026-07-05 04:29:40,791 [INFO] daily-run completed
+2026-07-05 04:29:47,198 [INFO] daily-run started
+2026-07-05 04:29:47,205 [INFO] update: 0
+2026-07-05 04:29:52,605 [INFO] recommend: [1, 2, 6, 28, 34] confidence=高
+2026-07-05 04:29:52,605 [ERROR] recommend failed: name 'result' is not defined
+2026-07-05 04:29:52,605 [INFO] daily-run completed
+2026-07-05 04:30:04,766 [INFO] daily-run started
+2026-07-05 04:30:04,774 [INFO] update: 0
+2026-07-05 04:30:08,856 [INFO] recommend: [1, 2, 6, 28, 34] confidence=高
+2026-07-05 04:30:08,857 [ERROR] recommend failed: name 'result' is not defined
+2026-07-05 04:30:08,857 [INFO] daily-run completed
+2026-07-05 04:30:14,937 [INFO] daily-run started
+2026-07-05 04:30:14,944 [INFO] update: 0
+2026-07-05 04:30:22,124 [INFO] recommend: [1, 2, 6, 28, 34] confidence=高
+2026-07-05 04:30:22,124 [ERROR] recommend failed: name 'result' is not defined
+2026-07-05 04:30:22,124 [INFO] daily-run completed
+2026-07-05 04:30:28,868 [INFO] daily-run started
+2026-07-05 04:30:28,876 [INFO] update: 0
+2026-07-05 04:30:33,340 [INFO] recommend: [1, 2, 6, 28, 34] confidence=高
+2026-07-05 04:30:33,341 [ERROR] recommend failed: name 'result' is not defined
+2026-07-05 04:30:33,341 [INFO] daily-run completed
+2026-07-05 04:30:46,208 [INFO] daily-run started
+2026-07-05 04:30:46,215 [INFO] update: 0
+2026-07-05 04:30:50,278 [INFO] recommend: [1, 2, 6, 28, 34] confidence=高
+2026-07-05 04:30:50,278 [ERROR] recommend failed: name 'result' is not defined
+2026-07-05 04:30:50,278 [INFO] daily-run completed
+2026-07-05 04:30:58,288 [INFO] daily-run started
+2026-07-05 04:30:58,295 [INFO] update: 0
+2026-07-05 04:31:03,142 [INFO] recommend: [1, 2, 6, 28, 34] confidence=高
+2026-07-05 04:31:04,480 [INFO] telegram pushed
+2026-07-05 04:31:04,480 [INFO] daily-run completed
