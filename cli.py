@@ -246,7 +246,9 @@ def main():
         "gui": cmd_gui,
     }
 
-    if cmd in commands:
+    if cmd in ("--help", "-h"):
+        print(__doc__)
+    elif cmd in commands:
         commands[cmd]()
     else:
         _json({"error": f"未知命令: {cmd}"})
