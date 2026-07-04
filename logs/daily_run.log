@@ -36,3 +36,8 @@
 2026-07-05 03:50:17,918 [INFO] recommend: [2, 4, 6, 18, 28, 35] confidence=高
 2026-07-05 03:50:20,534 [INFO] telegram pushed
 2026-07-05 03:50:20,534 [INFO] daily-run completed
+2026-07-05 04:13:52,602 [INFO] daily-run started
+2026-07-05 04:13:52,608 [INFO] update: 0
+2026-07-05 04:14:01,789 [INFO] recommend: [2, 6, 18, 28, 34, 35] confidence=高
+2026-07-05 04:14:05,021 [INFO] telegram pushed
+2026-07-05 04:14:05,021 [INFO] daily-run completed
