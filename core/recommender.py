@@ -20,6 +20,7 @@ from core.database import get_db, get_number_frequency
 from core.analyzer import hot_cold_numbers, missing_stats
 from core.kline import build_kline_data
 from core.backtest import auto_backtest
+from core.predictor import get_cold_alerts, predict_next_range, predict_hot_zones
 
 
 def get_recommendation(seed=42):
@@ -43,6 +44,8 @@ def get_recommendation(seed=42):
     miss_dict = {num: days for num, days in miss}
     miss_sorted = sorted(miss_dict.items(), key=lambda x: -x[1])
 
+    kdj_scores = {}
+    cold_alert_nums = cold_alert_nums if 'cold_alert_nums' in dir() else []
     # 3. 每个热号的综合评分
     hot_scores = []
     for num in hot_nums:
@@ -52,13 +55,37 @@ def get_recommendation(seed=42):
             hot_idx = hot_nums.index(num)
             miss_val = miss_dict.get(num, 0)
             hit_rate = float(s["hit_rate"].replace("%", ""))
-            score = (15 - hot_idx) * 3 + miss_val * 0.5 + hit_rate * 0.3
+            kdj_bonus = kdj_scores.get(num, 0)
+            cold_bonus = 5 if num in cold_alert_nums else 0
+            score = (15 - hot_idx) * 3 + miss_val * 0.5 + hit_rate * 0.3 + kdj_bonus + cold_bonus
             hot_scores.append({"number": num, "score": round(score, 1),
                                "hot_rank": hot_idx + 1, "omission": miss_val,
                                "hit_rate": s["hit_rate"]})
     hot_scores.sort(key=lambda x: -x["score"])
 
-    # 4. 五膽拖最优组合（固定种子确保可复现）
+    # 4. 冷号反弹预警
+    cold_alerts = get_cold_alerts(20)
+    cold_alert_nums = [n for n, _ in cold_alerts]
+
+    # 5. 走势预测
+    next_sum = predict_next_range()
+    hot_zones = predict_hot_zones()
+    active_zone = hot_zones["most_active"]
+
+    # 6. 技术指标信号融合（KDJ金叉/死叉）
+    kdj_scores = {}
+    for num in hot_nums[:10]:
+        k = build_kline_data(num, 50)
+        if "indicators" in k and k["indicators"].get("kdj"):
+            k_arr = k["indicators"]["kdj"][0]
+            d_arr = k["indicators"]["kdj"][1]
+            if len(k_arr) >= 3 and k_arr[-1] is not None and d_arr[-1] is not None:
+                if k_arr[-1] > d_arr[-1] and k_arr[-3] <= d_arr[-3]:
+                    kdj_scores[num] = 5  # 金叉加分
+                elif k_arr[-1] < d_arr[-1] and k_arr[-3] >= d_arr[-3]:
+                    kdj_scores[num] = -3  # 死叉减分
+
+    # 7. 五膽拖最优组合
     random.seed(seed)
     best_drag = auto_backtest(trials=300)
     drag_cores = best_drag.get("cores", [])
@@ -131,6 +158,8 @@ def get_recommendation(seed=42):
 
     # 9. 策略描述
     strategies = []
+    strategies.append(f"预测和值区间:{next_sum['predicted_range'][0]}-{next_sum['predicted_range'][1]}")
+    strategies.append(f"热区:{active_zone}")
     if hot_count >= 3:
         strategies.append(f"热号{hot_count}个（高频号码近期活跃）")
     if cold_count >= 2:
@@ -170,6 +199,9 @@ def get_recommendation(seed=42):
         "strategy": " + ".join(strategies) if strategies else "综合平衡",
         "stats": f"基于{total}期历史数据, 热{hot_count}冷{cold_count}胆{drag_count}",
         "reason": "\n".join(reason_lines),
+        "cold_alerts": cold_alerts[:5],
+        "next_sum_range": next_sum["predicted_range"],
+        "active_zone": active_zone,
         "debug": {
             "hot_scores": hot_scores[:10],
             "drag_cores": drag_cores,

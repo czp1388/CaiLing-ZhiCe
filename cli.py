@@ -266,7 +266,14 @@ def cmd_daily_run():
             chat = chat or os.getenv("TELEGRAM_CHAT_ID", "") or os.getenv("TELEGRAM_HOME_CHANNEL", "")
             if token and chat:
                 import requests as req
-                text = f"🎯 彩灵·智策 AI推荐\n推荐号码: {rec['numbers']}\n信心: {rec['confidence']}\n{rec['reason']}"
+                nums_display = " ".join(str(n) for n in rec['numbers'])
+                reasons_short = []
+                for nd in rec['number_details']:
+                    tags = []
+                    if nd['omission'] > 5: tags.append(f"遗漏{nd['omission']}期")
+                    if nd['deviation']: tags.append(nd['deviation'])
+                    reasons_short.append(f"#{nd['number']} {' '.join(tags)}")
+                text = f"🎯 彩灵智策 · {rec['confidence']} \n推荐: {nums_display}\n{rec['avg_hit_rate']} | {' | '.join(reasons_short)}"
                 req.post(f"https://api.telegram.org/bot{token}/sendMessage",
                         json={"chat_id": chat, "text": text}, timeout=10)
                 log.info("telegram pushed")
@@ -301,6 +308,53 @@ def cmd_cooccur():
     _json(result)
 
 
+
+def cmd_compare():
+    """📊 多期推荐对比"""
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--days", type=int, default=7)
+    args, _ = parser.parse_known_args(sys.argv[2:])
+    from core.history import get_history
+    h = get_history(args.days)
+    if not h:
+        _json({"error": "无推荐历史"})
+        return
+    result = []
+    for r in h:
+        nums = json.loads(r["numbers"]) if isinstance(r["numbers"], str) else r["numbers"]
+        result.append({"date": r["created_at"][:10], "numbers": nums, "confidence": r["confidence"]})
+    _json(result)
+
+
+def cmd_predict():
+    """🔮 走势预测：冷号预警+和值区间+热区"""
+    from core.predictor import get_cold_alerts, predict_next_range, predict_hot_zones
+    result = {"cold_alerts": get_cold_alerts(), "next_sum": predict_next_range(), "hot_zones": predict_hot_zones()}
+    if "--human" in sys.argv:
+        print("❄️ 冷号反弹预警:")
+        for n, d in result["cold_alerts"][:5]:
+            print(f"  号码{n}: 遗漏{d}期")
+        print(f"\n📊 下期和值预测: {result['next_sum']['predicted_range']}")
+        print(f"🔥 热区: {result['hot_zones']['most_active']} ({result['hot_zones']['zones']})")
+    else:
+        _json(result)
+
+
+def cmd_strategies():
+    """🎯 多策略输出"""
+    from core.recommender import get_recommendation
+    from core.backtest import auto_backtest
+    result = {"current": get_recommendation()}
+    # 冷号策略：用不同seed
+    result["cold_focus"] = get_recommendation(seed=99)
+    result["balanced"] = get_recommendation(seed=123)
+    if "--human" in sys.argv:
+        for k, v in result.items():
+            print(f"\n{'='*30}\n{k}: {v['numbers']} (信心:{v['confidence']})")
+    else:
+        _json(result)
+
 def cmd_pattern():
     """🔍 历史模式匹配"""
     from core.pattern_matcher import find_similar_patterns
@@ -318,7 +372,7 @@ def main():
         "init": cmd_init, "hot": cmd_hot, "missing": cmd_missing,
         "kline": cmd_kline, "backtest": cmd_backtest, "ev": cmd_ev,
         "recommend": cmd_recommend, "chart": cmd_chart, "analyze": cmd_analyze,
-        "gui": cmd_gui, "daily-run": cmd_daily_run, "report": cmd_report,
+        "gui": cmd_gui, "daily-run": cmd_daily_run, "report": cmd_report, "compare": cmd_compare, "predict": cmd_predict, "strategies": cmd_strategies,
         "cooccur": cmd_cooccur, "pattern": cmd_pattern,
     }
 
