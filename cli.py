@@ -120,6 +120,43 @@ def cmd_gui():
     run()
 
 
+def cmd_kline():
+    """K线图数据分析"""
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--number", type=int, required=True, help="号码 1-49")
+    parser.add_argument("--window", type=int, default=200)
+    parser.add_argument("--json", action="store_true")
+    args, _ = parser.parse_known_args(sys.argv[2:])
+    from core.kline import build_kline_data
+    data = build_kline_data(args.number, args.window)
+    if "error" in data:
+        print(f"❌ {data['error']}")
+        return
+    if args.json:
+        print(json.dumps(data, ensure_ascii=False, indent=2))
+    else:
+        s = data["stats"]
+        print(f"📊 号码{args.number} K线分析 ({s['total_draws']}期)")
+        print(f"  当前遗漏: {s['current_omission']}期 | 最大遗漏: {s['max_omission']}期 | 平均遗漏: {s['avg_omission']}期")
+        print(f"  开出次数: {s['hit_count']}次 ({s['hit_rate']})")
+        print(f"  运行 python3 cli.py chart --number {args.number} 生成K线图")
+
+
+def cmd_chart():
+    """生成K线图HTML"""
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--number", type=int, default=28)
+    parser.add_argument("--window", type=int, default=200)
+    parser.add_argument("--indicators", nargs="+",
+                       default=["ma5", "ma10", "boll", "kdj", "macd", "rsi", "adx"])
+    args, _ = parser.parse_known_args(sys.argv[2:])
+    from core.chart import save_kline_chart, render_distribution_html
+    path = save_kline_chart(args.number, args.window, args.indicators)
+    print(f"  open {path}")
+
+
 def main():
     if len(sys.argv) < 2:
         print(__doc__)
@@ -131,6 +168,7 @@ def main():
         "analyze": cmd_analyze, "hot": cmd_hot,
         "missing": cmd_missing, "backtest": cmd_backtest,
         "ev": cmd_ev, "gui": cmd_gui,
+        "kline": cmd_kline, "chart": cmd_chart,
     }
 
     if cmd in commands:
