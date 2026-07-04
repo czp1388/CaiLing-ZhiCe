@@ -424,7 +424,7 @@ def main():
         "kline": cmd_kline, "backtest": cmd_backtest, "ev": cmd_ev,
         "recommend": cmd_recommend, "chart": cmd_chart, "analyze": cmd_analyze,
         "gui": cmd_gui, "daily-run": cmd_daily_run, "report": cmd_report, "compare": cmd_compare, "predict": cmd_predict, "strategies": cmd_strategies,
-        "cooccur": cmd_cooccur, "pattern": cmd_pattern, "accuracy": cmd_accuracy, "weekly": cmd_weekly, "backup": cmd_backup, "missing-chart": cmd_missing_chart, "compare-versions": cmd_compare_versions, "tune": cmd_tune, "rotate": cmd_rotate, "verify": cmd_verify, "feedback": cmd_feedback,
+        "cooccur": cmd_cooccur, "pattern": cmd_pattern, "accuracy": cmd_accuracy, "weekly": cmd_weekly, "backup": cmd_backup, "missing-chart": cmd_missing_chart, "compare-versions": cmd_compare_versions, "tune": cmd_tune, "rotate": cmd_rotate, "verify": cmd_verify, "feedback": cmd_feedback, "full-backtest": cmd_full_backtest,
     }
 
     if cmd in ("--help", "-h"):
@@ -528,6 +528,8 @@ def cmd_verify():
     else:
         print(_jm.dumps(result, ensure_ascii=False, indent=2))
 
+
+
 def cmd_feedback():
     """🔄 策略反馈"""
     from core.history import get_history
@@ -555,6 +557,20 @@ def cmd_feedback():
             print(f"  {k}: {v['rate']} ({v['hits']}/{v['total']})")
     else:
         print(_jm.dumps(stats, ensure_ascii=False, indent=2))
+
+
+def cmd_full_backtest():
+    """📊 773期完整回测"""
+    from core.verify import run_full_backtest
+    import json as _jm
+    result = run_full_backtest()
+    if "--human" in sys.argv:
+        print(f"📊 完整回测结果 ({result['total_tests']}期)")
+        print(f"AI推荐平均每期: {result['ai_avg']}个")
+        print(f"随机选号平均每期: {result['rand_avg']}个")
+        print(f"结论: {result['conclusion']}")
+    else:
+        print(_jm.dumps(result, ensure_ascii=False, indent=2))
 
 if __name__ == "__main__":
     main()

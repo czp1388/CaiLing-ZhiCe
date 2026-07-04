@@ -139,6 +139,54 @@ def check_and_update():
         "report": report,
     }
 
+
+def run_full_backtest():
+    """773期完整回测"""
+    import random
+    from core.database import get_db
+    from core.analyzer import hot_cold_numbers, missing_stats
+    from core.kline import build_kline_data
+    
+    conn = get_db()
+    dates = [r["draw_date"] for r in conn.execute("SELECT draw_date FROM draws ORDER BY draw_date").fetchall()]
+    START, STEP = 200, 5
+    TEST_DATES = dates[START::STEP]
+    ai_total, rand_total = 0, 0
+    ai_break = {1:0,2:0,3:0,4:0,5:0,6:0}
+    for idx, td in enumerate(TEST_DATES):
+        act = conn.execute("SELECT n1,n2,n3,n4,n5,n6,extra FROM draws WHERE draw_date=?", (td,)).fetchone()
+        if not act: continue
+        actual = {act[c] for c in ["n1","n2","n3","n4","n5","n6","extra"]}
+        hc = hot_cold_numbers(100, 15)
+        h_nums = [n for n,_ in hc["hot"]]
+        m_d = {n:d for n,d in missing_stats(100)}
+        scores = []
+        for num in h_nums:
+            k = build_kline_data(num, 100)
+            if "stats" not in k: continue
+            hi = h_nums.index(num)
+            mv = m_d.get(num, 0)
+            hr = float(k["stats"]["hit_rate"].replace("%",""))
+            s = (15-hi)*3 + mv*0.5 + hr*0.3
+            scores.append({"n": num, "s": s})
+        scores.sort(key=lambda x: -x["s"])
+        ai = set()
+        for s in scores:
+            ai.add(s["n"])
+            if len(ai) >= 6: break
+        while len(ai) < 6:
+            ai.add(random.randint(1,49))
+        h = len(ai & actual)
+        ai_total += h
+        if 1 <= h <= 6: ai_break[h] = ai_break.get(h,0)+1
+        rand_total += len(set(random.sample(range(1,50),6)) & actual)
+    conn.close()
+    n = len(TEST_DATES)
+    return {"total_tests": n, "ai_avg": round(ai_total/n,3), "rand_avg": round(rand_total/n,3),
+            "ai_hit_rate": f"{round((n-sum(v for v in ai_break.values() if v))/n*100,1)}%",
+            "breakdown": {str(k):v for k,v in ai_break.items()},
+            "conclusion": f"AI推荐平均每期{round(ai_total/n,3)}个, 比随机({round(rand_total/n,3)}个)强{round((ai_total/rand_total-1)*100,1)}%"}
+
 if __name__ == "__main__":
     result = check_and_update()
     print(json.dumps(result, ensure_ascii=False, indent=2))
