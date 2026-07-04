@@ -227,6 +227,87 @@ def cmd_gui():
     run()
 
 
+def cmd_daily_run():
+    """🌟 一键日常：检查更新→分析→推荐→推送"""
+    quiet = "--quiet" in sys.argv
+    push = "--push" in sys.argv
+    from core.logging_util import get_logger
+    log = get_logger("daily_run")
+    log.info("daily-run started")
+    try:
+        from core.auto_update import update
+        updated = update()
+        log.info(f"update: {updated}")
+    except Exception as e:
+        log.error(f"update failed: {e}")
+    if not quiet:
+        print(json.dumps({"step": "update", "status": "ok"}))
+    try:
+        from core.recommender import get_recommendation
+        rec = get_recommendation()
+        if "error" in rec:
+            if not quiet:
+                _json({"status": "skipped", "reason": rec["error"]})
+            return
+        if not quiet:
+            _json(rec)
+        log.info(f"recommend: {rec['numbers']} confidence={rec['confidence']}")
+        if push:
+            token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+            chat = os.getenv("TELEGRAM_CHAT_ID", "") or os.getenv("TELEGRAM_HOME_CHANNEL", "")
+            for p in [os.path.expanduser("~/.hermes/.env"), os.path.join(BASE, ".env")]:
+                if os.path.exists(p):
+                    with open(p) as f:
+                        for line in f:
+                            if "=" in line and not line.startswith("#"):
+                                k, v = line.strip().split("=", 1)
+                                os.environ.setdefault(k.strip(), v.strip())
+            token = token or os.getenv("TELEGRAM_BOT_TOKEN", "")
+            chat = chat or os.getenv("TELEGRAM_CHAT_ID", "") or os.getenv("TELEGRAM_HOME_CHANNEL", "")
+            if token and chat:
+                import requests as req
+                text = f"🎯 彩灵·智策 AI推荐\n推荐号码: {rec['numbers']}\n信心: {rec['confidence']}\n{rec['reason']}"
+                req.post(f"https://api.telegram.org/bot{token}/sendMessage",
+                        json={"chat_id": chat, "text": text}, timeout=10)
+                log.info("telegram pushed")
+                if not quiet:
+                    print("  📤 Telegram已推送")
+    except Exception as e:
+        log.error(f"recommend failed: {e}")
+        if not quiet:
+            _json({"error": str(e)})
+    log.info("daily-run completed")
+
+
+def cmd_report():
+    """📊 生成HTML分析报告"""
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output", type=str, default=None)
+    args, _ = parser.parse_known_args(sys.argv[2:])
+    from core.report import save_report
+    path = save_report(args.output)
+    _json({"status": "ok", "file": path})
+
+
+def cmd_cooccur():
+    """🔗 号码共现分析"""
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--number", type=int, default=None)
+    args, _ = parser.parse_known_args(sys.argv[2:])
+    from core.cooccurrence import analyze_cooccurrence
+    result = analyze_cooccurrence(args.number)
+    _json(result)
+
+
+def cmd_pattern():
+    """🔍 历史模式匹配"""
+    from core.pattern_matcher import find_similar_patterns
+    result = find_similar_patterns()
+    _json(result)
+
+
 def main():
     if len(sys.argv) < 2:
         print(__doc__)
@@ -234,16 +315,11 @@ def main():
 
     cmd = sys.argv[1]
     commands = {
-        "init": cmd_init,
-        "hot": cmd_hot,
-        "missing": cmd_missing,
-        "kline": cmd_kline,
-        "backtest": cmd_backtest,
-        "ev": cmd_ev,
-        "recommend": cmd_recommend,
-        "chart": cmd_chart,
-        "analyze": cmd_analyze,
-        "gui": cmd_gui,
+        "init": cmd_init, "hot": cmd_hot, "missing": cmd_missing,
+        "kline": cmd_kline, "backtest": cmd_backtest, "ev": cmd_ev,
+        "recommend": cmd_recommend, "chart": cmd_chart, "analyze": cmd_analyze,
+        "gui": cmd_gui, "daily-run": cmd_daily_run, "report": cmd_report,
+        "cooccur": cmd_cooccur, "pattern": cmd_pattern,
     }
 
     if cmd in ("--help", "-h"):
