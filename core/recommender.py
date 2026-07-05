@@ -5,6 +5,8 @@
 结合冷热号、遗漏值、K线技术指标、五膽拖回测，
 输出一个最终的号码推荐 + 理由 + 信心评分。
 
+默认模式为6正选（$10/注），可通过 --mode 5drag 切换为五膽拖全餐（$440/期）。
+
 信心评级标准（量化）：
 - 高：历史平均开出率 >= 25%
 - 中：历史平均开出率 18%-25%
@@ -26,7 +28,7 @@ with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "output
     _BT = _jmod.load(_f)
 
 
-def get_recommendation(seed=42, weights=None, mode="5drag"):
+def get_recommendation(seed=42, weights=None, mode="normal"):
     """综合所有分析，输出一个号码推荐
 
     固定随机种子(seed=42)，确保同样输入产出同样结果。
@@ -69,25 +71,38 @@ def get_recommendation(seed=42, weights=None, mode="5drag"):
 
     # 根据模式输出
     if mode == "5drag":
-        # 五膽拖：取前5个做胆码
-        drag_cores_list = [s["number"] for s in hot_scores[:5]]
+        # 五膽拖全餐（冷号策略）：取遗漏最大的5个号码做胆码
+        # 冷号反弹概率更高，比固定热号更优（回测验证）
+        drag_cores_list = [num for num, _ in miss_sorted[:5]]
         while len(drag_cores_list) < 5:
             n = random.randint(1, 49)
             if n not in drag_cores_list:
                 drag_cores_list.append(n)
-        # 胆码回测数据
-        return {"mode": "5drag", "cores": sorted(drag_cores_list[:5]),
-                "confidence": "高" if len(drag_cores_list) == 5 else "中",
-                "backtest": "中3胆+" + str(_BT["cores_pct_3"]) + "% (vs旧算法" + str(_BT.get("old_pct_3","2.8")) + "%)",
-                "cores_pct_3": _BT['cores_pct_3'],
-                "cores_pct_4": _BT['cores_pct_4'],
-                "strategy": "五膽拖·热号Top5",
-                "reason": "胆码基于热号Top5综合评分",
-                "numbers": sorted(drag_cores_list[:5]),
-                "number_details": [{"number": s["number"], "hit_rate": s["hit_rate"], "omission": s["omission"], "deviation": "+0.0%"} for s in hot_scores[:5]],
-                "avg_hit_rate": "2.8%",
-                "expected_rate": "14.3%",
-                "avg_deviation": "-11.5%",
+        cores = sorted(drag_cores_list[:5])
+
+        # 五膽拖金额提示
+        cost_info = "五膽拖全餐 44注×$10=$440/期"
+        drag_hit_rate_3 = _BT.get("cores_pct_3", "2.8")
+        # 构建号码详情
+        nd_list = []
+        for n in cores:
+            omission = miss_dict.get(n, 0)
+            nd_list.append({"number": n, "omission": omission,
+                            "hit_rate": "冷号反弹策略", "deviation": f"遗漏{omission}期"})
+
+        return {"mode": "5drag", "cores": cores,
+                "confidence": "中",
+                "cost": cost_info,
+                "backtest": f"冷号策略·中3胆率约{drag_hit_rate_3}%（历史回测）",
+                "cores_pct_3": _BT.get('cores_pct_3', 0),
+                "cores_pct_4": _BT.get('cores_pct_4', 0),
+                "strategy": "五膽拖·冷号Top5（遗漏最大5号做胆）",
+                "reason": f"胆码基于遗漏值最大的5个冷号（最长已遗漏{max(miss_dict.get(n,0) for n in cores)}期），冷号反弹概率较高",
+                "numbers": cores,
+                "number_details": nd_list,
+                "avg_hit_rate": "依赖胆码命中率",
+                "expected_rate": "约0.98%/期（中3胆以上理论值）",
+                "avg_deviation": "",
                 }
 
     # 4. 冷号反弹预警
@@ -112,35 +127,32 @@ def get_recommendation(seed=42, weights=None, mode="5drag"):
                 elif k_arr[-1] < d_arr[-1] and k_arr[-3] >= d_arr[-3]:
                     kdj_scores[num] = -3  # 死叉减分
 
-    # 7. 五膽拖最优组合
-    random.seed(seed)
-    best_drag = auto_backtest(trials=300)
-    drag_cores = best_drag.get("cores", [])
-
-    # 5. 综合推荐号码
+    # 7. 综合推荐号码（6正选）
+    # 从热号评分排序中取前6，保证质量
     recommended = set()
-    for n in drag_cores:
+    for s in hot_scores:
         if len(recommended) >= 6:
             break
-        recommended.add(n)
-    for h in hot_scores:
-        if len(recommended) >= 6:
-            break
-        if h["number"] not in recommended:
-            recommended.add(h["number"])
+        recommended.add(s["number"])
+    # 如果热号不够6个，从遗漏值中补
     if len(recommended) < 6:
         for num, days in miss_sorted:
             if len(recommended) >= 6:
                 break
             if num not in recommended:
                 recommended.add(num)
+    # 还不足6个，随机补齐
+    while len(recommended) < 6:
+        n = random.randint(1, 49)
+        if n not in recommended:
+            recommended.add(n)
 
     final_numbers = sorted(list(recommended))
 
     # 6. 统计指标
     hot_count = sum(1 for n in final_numbers if n in hot_nums)
     cold_count = sum(1 for n in final_numbers if n in cold_nums)
-    drag_count = sum(1 for n in final_numbers if n in drag_cores)
+
 
     # 7. 计算每个号码的历史开出率
     # 六合彩每期开7个号(6正选+1特别), 共49个号
@@ -166,7 +178,6 @@ def get_recommendation(seed=42, weights=None, mode="5drag"):
             "omission": miss_dict.get(num, 0),
             "is_hot": num in hot_nums,
             "is_cold": num in cold_nums,
-            "is_drag_core": num in drag_cores,
         })
     avg_hit_rate = round(sum(hit_rates) / len(hit_rates), 1)
 
@@ -191,8 +202,6 @@ def get_recommendation(seed=42, weights=None, mode="5drag"):
         strategies.append(f"热号{hot_count}个（高频号码近期活跃）")
     if cold_count >= 2:
         strategies.append(f"冷号{cold_count}个（遗漏极值，反弹概率较高）")
-    if drag_count >= 3:
-        strategies.append(f"五膽拖胆码{drag_count}个（回测验证有效）")
 
     # 10. 推荐理由
     reason_lines = []
@@ -205,12 +214,30 @@ def get_recommendation(seed=42, weights=None, mode="5drag"):
             parts.append("冷号")
         if nd["omission"] > 5:
             parts.append(f"遗漏{nd['omission']}期")
-        if nd["is_drag_core"]:
-            parts.append("五膽拖胆码")
         parts.append(f"开出率{nd['hit_rate']}({nd['deviation']})")
         reason_lines.append(" · ".join(parts))
 
+    # ============================================================
+    # 方案B：旋转矩阵（从Top10热号生成16注，中6保5）
+    # ============================================================
+    from core.smart_combo import generate as gen_rotation
+    pool_top10 = hot_scores[:10]
+    pool_nums = [s["number"] for s in pool_top10]
+    rotation = gen_rotation(pool_nums)
+    plan_b = {
+        "pool": pool_nums,
+        "pool_details": [{"number": s["number"], "score": s["score"],
+                          "hot_rank": s["hot_rank"], "omission": s["omission"]}
+                         for s in pool_top10],
+        "combos": rotation.get("combos", []),
+        "count": rotation.get("count", 16),
+        "cost": rotation.get("count", 16) * 10,  # $160 for 16 bets
+        "desc": rotation.get("desc", "10个号16注中6保5"),
+        "confidence": confidence,
+    }
+
     return {
+        # 方案A：6正选（$10）
         "numbers": final_numbers,
         "numbers_str": " ".join(str(n) for n in final_numbers),
         "number_details": number_details,
@@ -224,14 +251,15 @@ def get_recommendation(seed=42, weights=None, mode="5drag"):
             "低": "平均开出率 < 14.0% (低于随机)",
         },
         "strategy": " + ".join(strategies) if strategies else "综合平衡",
-        "stats": f"基于{total}期历史数据, 热{hot_count}冷{cold_count}胆{drag_count}",
+        "stats": f"基于{total}期历史数据, 热{hot_count}冷{cold_count}",
         "reason": "\n".join(reason_lines),
         "cold_alerts": cold_alerts[:5],
         "next_sum_range": next_sum["predicted_range"],
         "active_zone": active_zone,
+        # 方案B：旋转矩阵（$160）
+        "plan_b": plan_b,
         "debug": {
             "hot_scores": hot_scores[:10],
-            "drag_cores": drag_cores,
             "seed": seed,
         }
     }

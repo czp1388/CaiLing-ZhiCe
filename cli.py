@@ -12,7 +12,7 @@
   python3 cli.py kline --number N [--human]         # K线+技术指标
   python3 cli.py backtest --auto|--cores ...        # 五膽拖回测
   python3 cli.py ev --calc 1 2 3 4 5 6              # 期望值
-  python3 cli.py recommend     [--push]  [--human]  # AI推荐（核心）
+  python3 cli.py recommend     [--push] [--mode 5drag] [--human]  # AI推荐（默认6正选，可选五膽拖）
   python3 cli.py chart --number N                   # 生成K线图
   python3 cli.py analyze       [--human]            # 全面分析
   python3 cli.py gui                                # 图形界面
@@ -142,30 +142,59 @@ def cmd_recommend():
         if a == "--mode" and i + 1 < len(sys.argv):
             mode = sys.argv[i + 1]
     result = get_recommendation(mode=mode)
+    # 保存推荐记录（两套方案一起存）
+    from core.history import save_recommendation
+    save_recommendation(result)
 
     if _is_human():
-        print(f"🎯 彩灵·智策 AI推荐")
-        print(f"  推荐号码: {result.get('numbers', [])}")
-        print(f"  策略: {result.get('strategy', '')}")
-        print(f"  信心: {result.get('confidence', '')}")
+        print(f"📊 彩灵·智策 · 今日推荐")
+        print()
+        # 方案A
+        a_nums = result.get("numbers", [])
+        nums_fmt = ", ".join(str(n) for n in a_nums)
+        print(f"方案A（小注·$10）")
+        print(f"推荐号码：{nums_fmt}")
+        print(f"信心：{result.get('confidence', '')}")
+        if result.get("strategy"):
+            print(f"策略：{result['strategy']}")
         if result.get("reason"):
-            print(f"\n📝 理由:")
-            for line in result["reason"].split("\n"):
-                print(f"  {line}")
-        if result.get("stats"):
-            print(f"\n📊 参考: {result['stats']}")
+            print(f"理由：{result['reason'].split(chr(10))[0]}")
+        print()
+
+        # 方案B
+        plan_b = result.get("plan_b", {})
+        b_pool = plan_b.get("pool", [])
+        if b_pool:
+            pool_fmt = ", ".join(str(n) for n in b_pool)
+            b_count = plan_b.get("count", 0)
+            b_cost = plan_b.get("cost", 0)
+            b_desc = plan_b.get("desc", "")
+            print(f"方案B（旋转矩阵·${b_cost}）")
+            print(f"胆码池：{pool_fmt}")
+            print(f"{b_count}注 → {b_desc}")
+        print()
+        print(f"📌 当前为模拟验证阶段，建议暂不实买")
     else:
         _json(result)
 
     # --push 直接推送到Telegram
     if "--push" in sys.argv:
         try:
+            a_nums = result.get("numbers", [])
+            nums_a = ", ".join(str(n) for n in a_nums)
+            plan_b = result.get("plan_b", {})
+            pool_b = ", ".join(str(n) for n in plan_b.get("pool", []))
+            b_count = plan_b.get("count", 0)
+            b_cost = plan_b.get("cost", 0)
             text = (
-                f"🎯 彩灵·智策 AI推荐\n"
-                f"推荐号码: {result.get('numbers', [])}\n"
-                f"策略: {result.get('strategy', '')}\n"
-                f"信心: {result.get('confidence', '')}\n"
-                f"理由: {result.get('reason', '')}"
+                f"📊 彩灵·智策 · 今日推荐\n\n"
+                f"方案A（小注·$10）\n"
+                f"推荐号码：{nums_a}\n"
+                f"信心：{result.get('confidence', '')}\n\n"
+                f"方案B（旋转矩阵·${b_cost}）\n"
+                f"号码池：{pool_b}\n"
+                f"{b_count}注 → 中6保5\n\n"
+                f"📌 当前为模拟验证阶段，建议暂不实买"
             )
             for env_path in [
                 os.path.expanduser("~/.hermes/.env"),
@@ -258,6 +287,8 @@ def cmd_daily_run():
     try:
         from core.recommender import get_recommendation
         rec = get_recommendation()
+        from core.history import save_recommendation
+        save_recommendation(rec)
         if "error" in rec:
             if not quiet:
                 _json({"status": "skipped", "reason": rec["error"]})
@@ -279,18 +310,21 @@ def cmd_daily_run():
             chat = chat or os.getenv("TELEGRAM_CHAT_ID", "") or os.getenv("TELEGRAM_HOME_CHANNEL", "")
             if token and chat:
                 import requests as req
-                nums_display = " ".join(str(n) for n in rec['numbers'])
-                reasons_short = []
-                for nd in rec['number_details']:
-                    tags = []
-                    if nd['omission'] > 5: tags.append(f"遗漏{nd['omission']}期")
-                    if nd['deviation']: tags.append(nd['deviation'])
-                    reasons_short.append(f"#{nd['number']} {' '.join(tags)}")
-                if "cores" in rec:
-                    cores_display = " ".join(str(c) for c in rec["cores"])
-                    text = f"🎯 彩灵·智策 五膽拖\n胆码: {cores_display}\n拖码: 1-49(全拖)\n信心: {rec.get('confidence','')}\n回测中3胆: {rec.get('cores_pct_3','?')}%\n策略: {rec.get('strategy','')}"
-                else:
-                    text = f"🎯 彩灵智策 · {rec['confidence']} \n推荐: {nums_display}\n{rec['avg_hit_rate']} | {' | '.join(reasons_short)}"
+                a_nums = ", ".join(str(n) for n in rec.get("numbers", []))
+                plan_b = rec.get("plan_b", {})
+                pool_b = ", ".join(str(n) for n in plan_b.get("pool", []))
+                b_count = plan_b.get("count", 0)
+                b_cost = plan_b.get("cost", 0)
+                text = (
+                    f"📊 彩灵·智策 · 今日推荐\n\n"
+                    f"方案A（小注·$10）\n"
+                    f"推荐号码：{a_nums}\n"
+                    f"信心：{rec.get('confidence', '')}\n\n"
+                    f"方案B（旋转矩阵·${b_cost}）\n"
+                    f"号码池：{pool_b}\n"
+                    f"{b_count}注 → 中6保5\n\n"
+                    f"📌 当前为模拟验证阶段，建议暂不实买"
+                )
                 req.post(f"https://api.telegram.org/bot{token}/sendMessage",
                         json={"chat_id": chat, "text": text}, timeout=10)
                 log.info("telegram pushed")
@@ -381,9 +415,35 @@ def cmd_pattern():
 
 
 def cmd_accuracy():
-    """📊 推荐准确率统计"""
+    """📊 推荐准确率统计 — 两套方案对比"""
     from core.stats import accuracy_report
-    _json(accuracy_report())
+    r = accuracy_report()
+    if _is_human():
+        a = r.get("plan_a", {})
+        b = r.get("plan_b", {})
+        print(f"📊 彩灵·智策 · 准确率看板")
+        print(f"  总推荐次数: {r.get('total_recommendations', 0)}")
+        print()
+        print(f"  ┌─ 方案A（6正选·$10）")
+        print(f"  │  命中率（至少中1个）: {a.get('hit_rate_1plus', '?')}")
+        print(f"  │  平均每期命中: {a.get('avg_matches_per_draw', '?')}个")
+        print(f"  │  单期最高命中: {a.get('max_hits_in_one_draw', '?')}个")
+        dist = a.get("hit_distribution", {})
+        if dist:
+            print(f"  │  命中分布: " + ", ".join(f"中{k}个:{v}%" for k, v in sorted(dist.items()) if float(v) > 0))
+        print()
+        print(f"  └─ 方案B（旋转矩阵·$160）")
+        print(f"     中奖率: {b.get('win_rate', '?')}（至少1注有奖）")
+        print(f"     中奖期数: {b.get('draws_with_win', 0)}/{b.get('total', 0)}")
+        print(f"     总奖金: ${b.get('total_prize', 0):,}")
+        print(f"     平均每期奖金: ${b.get('avg_prize_per_draw', 0):.2f}")
+        print(f"     中奖注数总计: {b.get('winning_combos_total', 0)}注")
+        if b.get("has_hit_5plus"):
+            print(f"     ✅ 曾中5个以上高奖: 是（{b.get('big_win_draws', 0)}次）")
+        else:
+            print(f"     ❌ 曾中5个以上高奖: 否")
+    else:
+        _json(r)
 
 def cmd_weekly():
     """📅 周报"""

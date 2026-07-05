@@ -1,12 +1,45 @@
 #!/usr/bin/env python3
-"""开奖核对闭环：抓开奖→核对→统计→推送"""
+"""开奖核对闭环：抓开奖→核对两套方案→统计→推送"""
 import json, os, sys, requests
 from datetime import datetime, timedelta
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.database import get_db
 from core.history import get_history, save_recommendation
 
-# Telegram推送
+SEVENTH = 40   # 七奖
+SIXTH = 320    # 六奖
+FIFTH = 640    # 五奖
+FOURTH = 9600  # 四奖
+THIRD = 50000  # 三奖
+
+def _prize_for(m6, me):
+    """根据命中数返回奖金"""
+    if m6 == 6:               return 10000000  # 头奖
+    if m6 == 5 and me:        return 500000    # 二奖
+    if m6 == 5:               return 50000     # 三奖
+    if m6 == 4:               return 9600      # 四奖
+    if m6 == 3 and me:        return 640       # 五奖
+    if m6 == 3:               return 320       # 六奖
+    if m6 == 2 and me:        return 40        # 七奖
+    return 0
+
+def _prize_level_name(m6, me):
+    if m6 == 6:               return "🏆头奖"
+    if m6 == 5 and me:        return "🥈二奖"
+    if m6 == 5:               return "🥉三奖"
+    if m6 == 4:               return "💵四奖"
+    if m6 == 3 and me:        return "💵五奖"
+    if m6 == 3:               return "🎯六奖"
+    if m6 == 2 and me:        return "🎯七奖"
+    return ""
+
+def check_combo(combo_set, draw_set6, extra):
+    """检查一注组合的命中情况"""
+    m6 = len(combo_set & draw_set6)
+    me = 1 if extra in combo_set else 0
+    prize = _prize_for(m6, me)
+    return m6, me, prize
+
 def _push_msg(text):
     for p in [os.path.expanduser("~/.hermes/.env")]:
         if os.path.exists(p):
@@ -24,7 +57,6 @@ def _push_msg(text):
         except: pass
 
 def fetch_latest_draw():
-    """从HKJC抓取最新开奖（Playwright）"""
     try:
         from playwright.sync_api import sync_playwright
         with sync_playwright() as p:
@@ -54,18 +86,55 @@ def fetch_latest_draw():
     except: pass
     return None
 
+
+def verify_plan_a(rec_nums, draw_set6, extra):
+    """方案A：6正选"""
+    combo_set = set(rec_nums) if isinstance(rec_nums, (list, set)) else set()
+    m6, me, prize = check_combo(combo_set, draw_set6, extra)
+    return {
+        "hits": m6 + me,
+        "hits_6": m6,
+        "hits_extra": me,
+        "prize": prize,
+        "level": _prize_level_name(m6, me),
+        "matched": sorted(combo_set & (draw_set6 | {extra})),
+    }
+
+def verify_plan_b(combos, draw_set6, extra):
+    """方案B：检查所有16注旋转矩阵"""
+    total_prize = 0
+    winning_combos = []
+    for i, combo in enumerate(combos):
+        combo_set = set(combo)
+        m6, me, prize = check_combo(combo_set, draw_set6, extra)
+        if prize > 0:
+            total_prize += prize
+            winning_combos.append({
+                "index": i,
+                "combo": sorted(combo),
+                "hits_6": m6,
+                "hits_extra": me,
+                "prize": prize,
+                "level": _prize_level_name(m6, me),
+            })
+    return {
+        "total_prize": total_prize,
+        "winning_count": len(winning_combos),
+        "winning_combos": winning_combos,
+        "max_level": max((w["level"] for w in winning_combos), key=lambda x: ["", "🎯七奖", "🎯六奖", "💵五奖", "💵四奖", "🥉三奖", "🥈二奖", "🏆头奖"].index(x) if x in ["", "🎯七奖", "🎯六奖", "💵五奖", "💵四奖", "🥉三奖", "🥈二奖", "🏆头奖"] else 0) if winning_combos else "",
+    }
+
+
 def check_and_update():
-    """检查是否有新开奖，对比推荐记录，推送核对报告"""
+    """检查开奖 → 核对双方案 → 推送"""
     conn = get_db()
     latest = conn.execute("SELECT draw_date FROM draws ORDER BY draw_date DESC LIMIT 1").fetchone()
     latest_date = latest[0] if latest else None
-    
-    # 尝试抓取最新开奖
+
     draw = fetch_latest_draw()
     if not draw:
         return {"status": "skipped", "reason": "开奖数据未获取到，请稍后再试"}
-    
-    # 如果是新数据，写入数据库
+
     if draw["draw_date"] != latest_date:
         conn.execute("INSERT OR IGNORE INTO draws (draw_date,n1,n2,n3,n4,n5,n6,extra) VALUES (?,?,?,?,?,?,?,?)",
                      (draw["draw_date"], draw["n1"], draw["n2"], draw["n3"], draw["n4"], draw["n5"], draw["n6"], draw["extra"]))
@@ -73,78 +142,133 @@ def check_and_update():
         new_draw = True
     else:
         new_draw = False
-    
-    # 读取最近的推荐记录
+
+    draw_set6 = {draw["n1"], draw["n2"], draw["n3"], draw["n4"], draw["n5"], draw["n6"]}
+    extra = draw["extra"]
+    draw_all7 = draw_set6 | {extra}
+
+    # 读取最近推荐
     history = get_history(5)
     last_rec = history[0] if history else None
     conn.close()
-    
-    # 构造核对报告
-    draw_nums = {draw["n1"], draw["n2"], draw["n3"], draw["n4"], draw["n5"], draw["n6"], draw["extra"]}
-    rec_nums = set()
-    rec_info = ""
+
+    plan_a_result = {}
+    plan_b_result = {}
+    report_lines = [f"📊 开奖核对 | {draw['draw_date']}",
+                    f"开奖号码：{draw['n1']} {draw['n2']} {draw['n3']} {draw['n4']} {draw['n5']} {draw['n6']} + {draw['extra']}"]
+
     if last_rec:
-        rec_nums = set(json.loads(last_rec["numbers"]) if isinstance(last_rec["numbers"], str) else last_rec["numbers"])
-        rec_info = f"AI推荐：{sorted(rec_nums)}"
-    
-    hits = rec_nums & draw_nums if rec_nums else set()
-    hit_count = len(hits)
-    expected = 7 / 49 * 6  # 随机预期每期命中数
-    
+        # 方案A核对
+        rec_nums = last_rec.get("numbers", [])
+        if isinstance(rec_nums, str):
+            rec_nums = json.loads(rec_nums)
+        plan_a_result = verify_plan_a(rec_nums, draw_set6, extra)
+        a_line = f"方案A ({' '.join(str(n) for n in rec_nums)})：中{plan_a_result['hits_6']}个正选"
+        if plan_a_result["level"]:
+            a_line += f" {plan_a_result['level']} ${plan_a_result['prize']:,}"
+        else:
+            a_line += " 未中奖"
+        report_lines.append(a_line)
+
+        # 方案B核对
+        plan_b_combos = last_rec.get("plan_b_combos", [])
+        if isinstance(plan_b_combos, str) and plan_b_combos:
+            plan_b_combos = json.loads(plan_b_combos)
+        if plan_b_combos:
+            plan_b_result = verify_plan_b(plan_b_combos, draw_set6, extra)
+            pool = last_rec.get("plan_b_pool", "")
+            pool_str = ""
+            if pool:
+                if isinstance(pool, str):
+                    pool_list = json.loads(pool)
+                else:
+                    pool_list = pool
+                pool_str = f" ({' '.join(str(n) for n in pool_list)})"
+            b_line = f"方案B{pool_str}：17注"
+            if plan_b_result["winning_count"] > 0:
+                b_line += f" → 中{plan_b_result['winning_count']}注"
+                if plan_b_result["max_level"]:
+                    b_line += f" {plan_b_result['max_level']}"
+                b_line += f" 总奖金${plan_b_result['total_prize']:,}"
+            else:
+                b_line += " 未中奖"
+            report_lines.append(b_line)
+
     # 累计统计
     all_history = get_history(100)
-    total_hits = 0
-    total_recs = 0
+    stats_a = {"total": 0, "hits_1plus": 0, "total_matches": 0, "max_hits": 0}
+    stats_b = {"total": 0, "draws_with_win": 0, "total_prize": 0, "big_win_draws": 0}
+
     for h in all_history:
-        hn = set(json.loads(h["numbers"]) if isinstance(h["numbers"], str) else h["numbers"])
+        hn = h.get("numbers", [])
+        if isinstance(hn, str): hn = json.loads(hn)
         td = h["created_at"][:10] if h.get("created_at") else ""
         conn2 = get_db()
         act = conn2.execute("SELECT n1,n2,n3,n4,n5,n6,extra FROM draws WHERE draw_date < ? ORDER BY draw_date DESC LIMIT 1", (td,)).fetchone()
         conn2.close()
         if act:
-            an = {act[c] for c in ["n1","n2","n3","n4","n5","n6","extra"]}
-            total_hits += len(hn & an)
-            total_recs += 1
-    
-    avg_hit = round(total_hits / max(total_recs, 1), 2)
-    
-    # 推送报告
+            an6 = {act[c] for c in ["n1","n2","n3","n4","n5","n6"]}
+            an7 = an6 | {act["extra"]}
+            # 方案A
+            h6 = len(set(hn) & an6)
+            stats_a["total"] += 1
+            stats_a["total_matches"] += h6
+            stats_a["max_hits"] = max(stats_a["max_hits"], h6)
+            if h6 >= 1:
+                stats_a["hits_1plus"] += 1
+
+            # 方案B
+            b_combos = h.get("plan_b_combos", [])
+            if isinstance(b_combos, str) and b_combos:
+                b_combos = json.loads(b_combos)
+            if b_combos:
+                b_res = verify_plan_b(b_combos, an6, act["extra"])
+                stats_b["total"] += 1
+                if b_res["winning_count"] > 0:
+                    stats_b["draws_with_win"] += 1
+                stats_b["total_prize"] += b_res["total_prize"]
+                # 是否有5+命中（三奖及以上）
+                if any(c["hits_6"] >= 5 or c["hits_6"] == 4 and c["hits_extra"] for c in b_res["winning_combos"]):
+                    stats_b["big_win_draws"] += 1
+
+    # 累计统计行
+    a_hit_rate = f"{stats_a['hits_1plus']/max(stats_a['total'],1)*100:.0f}%" if stats_a["total"] else "0%"
+    b_win_rate = f"{stats_b['draws_with_win']/max(stats_b['total'],1)*100:.0f}%" if stats_b["total"] else "0%"
+    report_lines.append(f"累计({all_history[0]['created_at'][:10] if all_history else '?'}起)：方案A命中率{a_hit_rate} 方案B中奖率{b_win_rate}")
+    report_lines.append("")
+    report_lines.append("📌 当前为模拟验证阶段，建议暂不实买")
+
+    report = "\n".join(report_lines)
+
     can_push = bool(os.getenv("TELEGRAM_BOT_TOKEN", "")) or os.path.exists(os.path.expanduser("~/.hermes/.env"))
-    
-    mode_tag = " (五膽拖)" if rec_info and "cores" in str(rec_info) else ""
-    report = (
-        f"📊 开奖核对 | {draw['draw_date']}{mode_tag}\n"
-        f"开奖号码：{draw['n1']}, {draw['n2']}, {draw['n3']}, {draw['n4']}, {draw['n5']}, {draw['n6']} + {draw['extra']}\n"
-        f"{rec_info}\n"
-        f"命中：{hit_count}个号码 ({sorted(hits) if hits else '无'})\n"
-        f"累计推荐：{total_recs}次 | 累计命中：{total_hits}个"
-    )
-    
     if can_push:
         _push_msg(report)
-    
+
     return {
         "status": "ok",
         "new_draw": new_draw,
         "draw": draw,
-        "recommendation": sorted(rec_nums) if rec_nums else None,
-        "hits": sorted(hits),
-        "hit_count": hit_count,
-        "avg_hit_per_draw": avg_hit,
-        "random_expected": round(expected, 2),
-        "total_recommendations": total_recs,
-        "total_hits_all": total_hits,
+        "plan_a": plan_a_result,
+        "plan_b": plan_b_result,
+        "stats": {
+            "plan_a": {"total": stats_a["total"], "hits_1plus": stats_a["hits_1plus"],
+                       "hit_rate": a_hit_rate, "total_matches": stats_a["total_matches"],
+                       "max_hits": stats_a["max_hits"]},
+            "plan_b": {"total": stats_b["total"], "draws_with_win": stats_b["draws_with_win"],
+                       "win_rate": b_win_rate, "total_prize": stats_b["total_prize"],
+                       "big_win_draws": stats_b["big_win_draws"]},
+        },
         "report": report,
     }
 
 
 def run_full_backtest():
-    """773期完整回测"""
+    """773期完整回测（保留兼容）"""
     import random
     from core.database import get_db
     from core.analyzer import hot_cold_numbers, missing_stats
     from core.kline import build_kline_data
-    
+
     conn = get_db()
     dates = [r["draw_date"] for r in conn.execute("SELECT draw_date FROM draws ORDER BY draw_date").fetchall()]
     START, STEP = 200, 5
