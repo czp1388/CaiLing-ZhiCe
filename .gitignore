@@ -1,1 +1,8 @@
 *.pyc
+__pycache__/
+*.db
+*.log
+output/
+analysis/
+backups/
+.env

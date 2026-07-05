@@ -21,11 +21,16 @@ sys.path.insert(0, BASE)
 from core.database import get_db, get_number_frequency
 from core.analyzer import hot_cold_numbers, missing_stats
 from core.kline import build_kline_data
-from core.backtest import auto_backtest
 from core.predictor import get_cold_alerts, predict_next_range, predict_hot_zones
 import json as _jmod
-with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "output", "backtest_drag.json")) as _f:
-    _BT = _jmod.load(_f)
+_BT = {}
+_bt_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "output", "backtest_drag.json")
+if os.path.exists(_bt_path):
+    try:
+        with open(_bt_path) as _f:
+            _BT = _jmod.load(_f)
+    except Exception:
+        _BT = {}
 
 
 def get_recommendation(seed=42, weights=None, mode="normal"):
@@ -50,7 +55,11 @@ def get_recommendation(seed=42, weights=None, mode="normal"):
     miss_sorted = sorted(miss_dict.items(), key=lambda x: -x[1])
 
     kdj_scores = {}
-    cold_alert_nums = cold_alert_nums if 'cold_alert_nums' in dir() else []
+
+    # 冷号反弹预警（提前计算，供热号评分使用）
+    cold_alerts = get_cold_alerts(20)
+    cold_alert_nums = [n for n, _ in cold_alerts]
+
     # 3. 每个热号的综合评分
     hot_scores = []
     for num in hot_nums:
@@ -104,10 +113,6 @@ def get_recommendation(seed=42, weights=None, mode="normal"):
                 "expected_rate": "约0.98%/期（中3胆以上理论值）",
                 "avg_deviation": "",
                 }
-
-    # 4. 冷号反弹预警
-    cold_alerts = get_cold_alerts(20)
-    cold_alert_nums = [n for n, _ in cold_alerts]
 
     # 5. 走势预测
     next_sum = predict_next_range()

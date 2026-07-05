@@ -4,7 +4,7 @@ import json, os, sys, requests
 from datetime import datetime, timedelta
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.database import get_db
-from core.history import get_history, save_recommendation
+from core.history import get_history
 
 SEVENTH = 40   # 七奖
 SIXTH = 320    # 六奖

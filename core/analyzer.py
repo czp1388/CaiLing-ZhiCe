@@ -3,9 +3,8 @@
 彩灵·智策 — 分析引擎
 冷热号分析、遗漏值统计、号码走势
 """
-import json, sys, os, math
+import json, sys, os
 from collections import defaultdict
-from datetime import datetime, timedelta
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE)

@@ -5,11 +5,9 @@
 计算每注(6个号码)的期望值 EV = Σ(奖金 × 概率)
 """
 import json, sys, os, math, itertools
-from collections import defaultdict
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE)
-from core.database import get_db
 from core.analyzer import hot_cold_numbers
 
 

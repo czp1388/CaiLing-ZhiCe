@@ -6,12 +6,10 @@
 如果胆码中3个以上即有奖。回测用历史数据算命中率。
 """
 import json, sys, os, itertools, math
-from collections import defaultdict
-from datetime import datetime
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE)
-from core.database import get_db, get_draws
+from core.database import get_db
 
 
 def backtest_5drag(cores, drags=None, max_window=100):

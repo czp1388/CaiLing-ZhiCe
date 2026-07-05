@@ -5,7 +5,7 @@
 支持：导入CSV、按日期查询、号码频率统计
 """
 import sqlite3, os, csv, json, sys
-from datetime import datetime, date
+from datetime import datetime
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(BASE, "data", "marksix.db")
