@@ -3,7 +3,7 @@
 彩灵·智策 — 数据采集
 从bet.hkjc.com获取六合彩历史开奖数据（Playwright）
 """
-import sys, os, json
+import sys, os, json, time
 from datetime import datetime, timedelta
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -24,7 +24,6 @@ def fetch_marksix_results(target_date, max_retries=2):
                 url = f"https://bet.hkjc.com/marksix/index.aspx?lang=ch&date={date_str}"
                 page.goto(url, wait_until="domcontentloaded", timeout=30000)
 
-                import time
                 time.sleep(3)
 
                 # 尝试提取开奖结果
@@ -70,7 +69,6 @@ def fetch_marksix_results(target_date, max_retries=2):
 
         except Exception as e:
             if attempt < max_retries - 1:
-                import time
                 time.sleep(2)
                 continue
             return None
@@ -108,7 +106,7 @@ def generate_sample_data():
             """, (date_str, "", main[0], main[1], main[2], main[3], main[4], main[5], extra))
             conn.commit()
             count += 1
-        except:
+        except Exception:
             pass
 
     conn.close()
@@ -150,11 +148,14 @@ def fetch_all(limit=200):
     conn.close()
     print(f"\n✅ 实时采集: {count} 期")
 
-    # 如果实时数据不够，补充模拟数据
+    # 如果实时数据不够，补充模拟数据（仅在开发模式）
     if count < 50:
-        print("  📦 补充模拟数据...")
-        sample = generate_sample_data()
-        print(f"  ✅ 模拟数据: {sample} 期")
+        if os.getenv("CAILING_DEV", "0") == "1":
+            print("  📦 补充模拟数据...")
+            sample = generate_sample_data()
+            print(f"  ✅ 模拟数据: {sample} 期")
+        else:
+            print(f"  ℹ️ 跳过模拟数据（实时数据{count}期，设置 CAILING_DEV=1 启用模拟）")
 
     return count
 

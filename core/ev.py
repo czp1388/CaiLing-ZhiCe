@@ -45,16 +45,25 @@ def calculate_ev(picks, jackpot_1st=10000000, jackpot_2nd=1000000):
 
     total_combo = combination(49, 6)  # C(49, 6) = 13,983,816
 
-    # 概率计算（简化版）
-    # 准确概率应该用超几何分布，这里用近似
+    # ── 精确概率公式 ──────────────────────────────────────────
+    # 超几何分布：C(6,k)*C(43,6-k)/C(49,6) = 恰好中 k 个正选的概率
+    # 在恰好中 k 个正选的条件下，剩余 6-k 个未选数中有特别号的概率为 (6-k)/43
+    # 因此：
+    #   头奖（6正选）        = C(6,6)*C(43,0)/C(49,6)
+    #   二奖（5正选+特别号） = C(6,5)*C(43,1)/C(49,6) * 1/43
+    #   三奖（5正选）        = C(6,5)*C(43,1)/C(49,6) * 42/43
+    #   四奖（4正选+特别号） = C(6,4)*C(43,2)/C(49,6) * 2/43
+    #   五奖（4正选）        = C(6,4)*C(43,2)/C(49,6) * 41/43
+    #   六奖（3正选+特别号） = C(6,3)*C(43,3)/C(49,6) * 3/43
+    #   七奖（3正选）        = C(6,3)*C(43,3)/C(49,6) * 40/43
     probs = {
-        "head": 1 / total_combo,
-        "2nd": combination(6, 5) * combination(42, 0) / total_combo,  # 近似
-        "3rd": combination(6, 5) * combination(42, 1) / total_combo,
-        "4th": combination(6, 4) * combination(42, 1) / total_combo,
-        "5th": combination(6, 4) * combination(42, 2) / total_combo,
-        "6th": combination(6, 3) * combination(42, 2) / total_combo,
-        "7th": combination(6, 3) * combination(42, 3) / total_combo,
+        "head": combination(6, 6) * combination(43, 0) / total_combo,
+        "2nd": combination(6, 5) * combination(43, 1) / total_combo / 43,
+        "3rd": combination(6, 5) * combination(43, 1) / total_combo * 42 / 43,
+        "4th": combination(6, 4) * combination(43, 2) / total_combo * 2 / 43,
+        "5th": combination(6, 4) * combination(43, 2) / total_combo * 41 / 43,
+        "6th": combination(6, 3) * combination(43, 3) / total_combo * 3 / 43,
+        "7th": combination(6, 3) * combination(43, 3) / total_combo * 40 / 43,
     }
 
     ev = 0

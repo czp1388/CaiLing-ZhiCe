@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """开奖核对闭环：抓开奖→核对两套方案→统计→推送"""
-import json, os, sys, requests
+import json, logging, os, sys, time, requests
 from datetime import datetime, timedelta
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.database import get_db
 from core.history import get_history
+
+logging.basicConfig(level=logging.INFO)
+_logger = logging.getLogger(__name__)
 
 SEVENTH = 40   # 七奖
 SIXTH = 320    # 六奖
@@ -41,7 +44,8 @@ def check_combo(combo_set, draw_set6, extra):
     return m6, me, prize
 
 def _push_msg(text):
-    for p in [os.path.expanduser("~/.hermes/.env")]:
+    for p in [os.path.expanduser("~/.hermes/.env"),
+              os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")]:
         if os.path.exists(p):
             with open(p) as f:
                 for line in f:
@@ -54,7 +58,8 @@ def _push_msg(text):
         try:
             requests.post(f"https://api.telegram.org/bot{token}/sendMessage",
                          json={"chat_id": chat, "text": text}, timeout=10)
-        except: pass
+        except Exception as e:
+            _logger.warning(f"Telegram推送失败: {e}")
 
 def fetch_latest_draw():
     try:
@@ -63,7 +68,7 @@ def fetch_latest_draw():
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
             page.goto("https://bet.hkjc.com/marksix/index.aspx?lang=ch", wait_until="domcontentloaded", timeout=30000)
-            import time; time.sleep(3)
+            time.sleep(3)
             nums = page.evaluate("""
             () => {
                 try {
@@ -83,7 +88,8 @@ def fetch_latest_draw():
                 date_str = datetime.now().strftime("%Y-%m-%d")
                 return {"draw_date": date_str, "n1": main[0], "n2": main[1], "n3": main[2],
                         "n4": main[3], "n5": main[4], "n6": main[5], "extra": extra}
-    except: pass
+    except Exception as e:
+        _logger.warning(f"获取开奖数据失败: {e}")
     return None
 
 
@@ -136,10 +142,15 @@ def check_and_update():
         return {"status": "skipped", "reason": "开奖数据未获取到，请稍后再试"}
 
     if draw["draw_date"] != latest_date:
-        conn.execute("INSERT OR IGNORE INTO draws (draw_date,n1,n2,n3,n4,n5,n6,extra) VALUES (?,?,?,?,?,?,?,?)",
-                     (draw["draw_date"], draw["n1"], draw["n2"], draw["n3"], draw["n4"], draw["n5"], draw["n6"], draw["extra"]))
-        conn.commit()
-        new_draw = True
+        # 双重检查：确保此 draw_date 尚未入库
+        dup = conn.execute("SELECT id FROM draws WHERE draw_date=?", (draw["draw_date"],)).fetchone()
+        if dup:
+            new_draw = False
+        else:
+            conn.execute("INSERT INTO draws (draw_date,n1,n2,n3,n4,n5,n6,extra) VALUES (?,?,?,?,?,?,?,?)",
+                         (draw["draw_date"], draw["n1"], draw["n2"], draw["n3"], draw["n4"], draw["n5"], draw["n6"], draw["extra"]))
+            conn.commit()
+            new_draw = True
     else:
         new_draw = False
 

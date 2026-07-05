@@ -5,7 +5,7 @@
 五膽拖玩法：选5个胆码（必中）+ 拖若干个号码
 如果胆码中3个以上即有奖。回测用历史数据算命中率。
 """
-import json, sys, os, itertools, math
+import json, sys, os
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE)

@@ -104,10 +104,16 @@ class MainWindow(QMainWindow):
         if not HAS_WEB or not hasattr(self, 'web'):
             return
         try:
-            num = int(self.num_inp.text() or "28")
+            text = self.num_inp.text() or "28"
+            num = int(text)
+            if num < 1 or num > 49:
+                QMessageBox.warning(self, "输入错误", "号码必须在 1-49 之间")
+                return
             from core.chart import render_kline_html
             html = render_kline_html(num, 150, ["ma5", "boll", "rsi"])
             self.web.setHtml(html)
+        except ValueError:
+            QMessageBox.warning(self, "输入错误", "请输入有效的数字 (1-49)")
         except Exception as e:
             self.web.setHtml(f"<h3 style='color:red'>❌ {e}</h3>")
 

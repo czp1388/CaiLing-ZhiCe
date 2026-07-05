@@ -15,6 +15,7 @@
 供其他AI（小墨/小灵）通过 cli.py recommend --json 调用。
 """
 import json, sys, os, random
+from datetime import datetime
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE)
@@ -33,12 +34,13 @@ if os.path.exists(_bt_path):
         _BT = {}
 
 
-def get_recommendation(seed=42, weights=None, mode="normal"):
+def get_recommendation(seed=None, weights=None, mode="normal"):
     """综合所有分析，输出一个号码推荐
 
-    固定随机种子(seed=42)，确保同样输入产出同样结果。
+    默认seed为None → 自动按日期生成种子，每天推荐不同。
+    也可传入固定seed(如42)确保可复现。
     """
-    random.seed(seed)
+    random.seed(seed if seed is not None else int(datetime.now().strftime("%Y%m%d")))
 
     db = get_db()
     total = db.execute("SELECT COUNT(*) FROM draws").fetchone()[0]

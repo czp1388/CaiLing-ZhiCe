@@ -33,6 +33,29 @@ def _json(data):
     print(json.dumps(data, ensure_ascii=False, indent=2))
 
 
+def _telegram_push(text):
+    """推送消息到Telegram"""
+    for env_path in [
+        os.path.expanduser("~/.hermes/.env"),
+        os.path.join(BASE, ".env"),
+    ]:
+        if os.path.exists(env_path):
+            with open(env_path) as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        os.environ.setdefault(k.strip(), v.strip())
+    token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    chat = os.getenv("TELEGRAM_CHAT_ID", "") or os.getenv("TELEGRAM_HOME_CHANNEL", "")
+    if token and chat:
+        import requests as req
+        req.post(f"https://api.telegram.org/bot{token}/sendMessage",
+                json={"chat_id": chat, "text": text}, timeout=10)
+        return True
+    return False
+
+
 def cmd_init():
     """初始化数据库"""
     from core.database import init_db
@@ -196,24 +219,10 @@ def cmd_recommend():
                 f"{b_count}注 → 中6保5\n\n"
                 f"📌 当前为模拟验证阶段，建议暂不实买"
             )
-            for env_path in [
-                os.path.expanduser("~/.hermes/.env"),
-                os.path.join(BASE, "..", ".env"),
-            ]:
-                if os.path.exists(env_path):
-                    with open(env_path) as f:
-                        for line in f:
-                            line = line.strip()
-                            if line and not line.startswith("#") and "=" in line:
-                                k, v = line.split("=", 1)
-                                os.environ.setdefault(k.strip(), v.strip())
-            token = os.getenv("TELEGRAM_BOT_TOKEN", "")
-            chat = os.getenv("TELEGRAM_CHAT_ID", "") or os.getenv("TELEGRAM_HOME_CHANNEL", "")
-            if token and chat:
-                import requests as req
-                req.post(f"https://api.telegram.org/bot{token}/sendMessage",
-                        json={"chat_id": chat, "text": text}, timeout=10)
+            if _telegram_push(text):
                 print("  📤 已推送Telegram")
+            else:
+                print("  ❌ 推送失败: 未设置Telegram环境变量")
         except Exception as e:
             print(f"  ❌ 推送失败: {e}")
 
@@ -298,39 +307,27 @@ def cmd_daily_run():
             _json(rec)
         log.info(f"recommend: {rec['numbers']} confidence={rec['confidence']}")
         if push:
-            token = os.getenv("TELEGRAM_BOT_TOKEN", "")
-            chat = os.getenv("TELEGRAM_CHAT_ID", "") or os.getenv("TELEGRAM_HOME_CHANNEL", "")
-            for p in [os.path.expanduser("~/.hermes/.env"), os.path.join(BASE, ".env")]:
-                if os.path.exists(p):
-                    with open(p) as f:
-                        for line in f:
-                            if "=" in line and not line.startswith("#"):
-                                k, v = line.strip().split("=", 1)
-                                os.environ.setdefault(k.strip(), v.strip())
-            token = token or os.getenv("TELEGRAM_BOT_TOKEN", "")
-            chat = chat or os.getenv("TELEGRAM_CHAT_ID", "") or os.getenv("TELEGRAM_HOME_CHANNEL", "")
-            if token and chat:
-                import requests as req
-                a_nums = ", ".join(str(n) for n in rec.get("numbers", []))
-                plan_b = rec.get("plan_b", {})
-                pool_b = ", ".join(str(n) for n in plan_b.get("pool", []))
-                b_count = plan_b.get("count", 0)
-                b_cost = plan_b.get("cost", 0)
-                text = (
-                    f"📊 彩灵·智策 · 今日推荐\n\n"
-                    f"方案A（小注·$10）\n"
-                    f"推荐号码：{a_nums}\n"
-                    f"信心：{rec.get('confidence', '')}\n\n"
-                    f"方案B（旋转矩阵·${b_cost}）\n"
-                    f"号码池：{pool_b}\n"
-                    f"{b_count}注 → 中6保5\n\n"
-                    f"📌 当前为模拟验证阶段，建议暂不实买"
-                )
-                req.post(f"https://api.telegram.org/bot{token}/sendMessage",
-                        json={"chat_id": chat, "text": text}, timeout=10)
+            a_nums = ", ".join(str(n) for n in rec.get("numbers", []))
+            plan_b = rec.get("plan_b", {})
+            pool_b = ", ".join(str(n) for n in plan_b.get("pool", []))
+            b_count = plan_b.get("count", 0)
+            b_cost = plan_b.get("cost", 0)
+            text = (
+                f"📊 彩灵·智策 · 今日推荐\n\n"
+                f"方案A（小注·$10）\n"
+                f"推荐号码：{a_nums}\n"
+                f"信心：{rec.get('confidence', '')}\n\n"
+                f"方案B（旋转矩阵·${b_cost}）\n"
+                f"号码池：{pool_b}\n"
+                f"{b_count}注 → 中6保5\n\n"
+                f"📌 当前为模拟验证阶段，建议暂不实买"
+            )
+            if _telegram_push(text):
                 log.info("telegram pushed")
                 if not quiet:
                     print("  📤 Telegram已推送")
+            else:
+                log.info("telegram push skipped (no token/chat)")
     except Exception as e:
         log.error(f"recommend failed: {e}")
         if not quiet:
@@ -545,7 +542,6 @@ def cmd_rotate():
     import json as _json_mod
     print(_json_mod.dumps({"frequencies": warnings[:6], "total_history": len(h)}, ensure_ascii=False, indent=2))
 
-    main()
 
 def cmd_verify():
     """📊 开奖核对: 抓开奖→核对→推送"""

@@ -6,7 +6,6 @@
 嵌入PyQt5的QWebEngineView中显示
 """
 import json, os, sys
-from datetime import datetime
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE)

@@ -44,7 +44,6 @@ def save_recommendation(rec):
 
 def get_history(limit=30):
     conn = get_db()
-    conn.executescript(SCHEMA)
     rows = conn.execute("SELECT * FROM recommendations ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
     conn.close()
     result = []
