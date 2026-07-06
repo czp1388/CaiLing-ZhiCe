@@ -53,12 +53,16 @@ def _push_msg(text):
     push("六合彩", "开奖核对", body=text, level="normal")
 
 def fetch_latest_draw():
-    try:
+    # 自动重试3次，间隔递增
+    import time as _time
+    for _attempt in range(3):
+        try:
         from playwright.sync_api import sync_playwright
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
             page.goto("https://bet.hkjc.com/marksix/index.aspx?lang=ch", wait_until="domcontentloaded", timeout=30000)
+            break  # 成功则跳出重试循环
             time.sleep(3)
             nums = page.evaluate("""
             () => {
