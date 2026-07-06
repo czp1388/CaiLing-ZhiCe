@@ -257,6 +257,8 @@ def cmd_gui():
 
 
 def cmd_daily_run():
+    import signal
+    signal.alarm(180)  # 3分钟超时
     """🌟 一键日常：检查更新→分析→推荐→推送"""
     quiet = "--quiet" in sys.argv
     push = "--push" in sys.argv

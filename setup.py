@@ -1,3 +1,6 @@
+# v5.2: 彩灵·智策已作为彩灵交易系统子模块运行
+# setup.py保留仅供参考
+
 #!/usr/bin/env python3
 """彩灵·智策 一键安装"""
 import subprocess, sys

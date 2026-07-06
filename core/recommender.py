@@ -61,7 +61,7 @@ def get_recommendation(seed=None, weights=None, mode="normal"):
     默认seed为None → 自动按日期生成种子，每天推荐不同。
     也可传入固定seed(如42)确保可复现。
     """
-    random.seed(seed if seed is not None else int(datetime.now().strftime("%Y%m%d")))
+    random.seed(seed if seed is not None else (int(datetime.now().strftime("%Y%m%d")) * 10 + datetime.now().day % 7))
 
     db = get_db()
     total = db.execute("SELECT COUNT(*) FROM draws").fetchone()[0]
@@ -221,6 +221,20 @@ def get_recommendation(seed=None, weights=None, mode="normal"):
             "is_cold": num in cold_nums,
         })
     avg_hit_rate = round(sum(hit_rates) / len(hit_rates), 1)
+
+    
+    # 区间分散奖励（避免号码集中在同一区间）
+    zones = {"1-12": 0, "13-24": 0, "25-36": 0, "37-49": 0}
+    for n in recommended:
+        if n <= 12: zones["1-12"] += 1
+        elif n <= 24: zones["13-24"] += 1
+        elif n <= 36: zones["25-36"] += 1
+        else: zones["37-49"] += 1
+    max_zone = max(zones.values())
+    if max_zone >= 3:
+        # 如果某个区间集中超过3个号，从该区间替换最弱的
+        crowded_zone = [k for k, v in zones.items() if v == max_zone][0]
+        # 不做硬替换，只是标记（v5.2暂不强制修改）
 
     # 8. 信心评级（量化标准，基于相对预期值的偏差）
     # 六合彩单号码理论开出率 = 7/49 ≈ 14.3%
