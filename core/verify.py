@@ -44,22 +44,13 @@ def check_combo(combo_set, draw_set6, extra):
     return m6, me, prize
 
 def _push_msg(text):
-    for p in [os.path.expanduser("~/.hermes/.env"),
-              os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")]:
-        if os.path.exists(p):
-            with open(p) as f:
-                for line in f:
-                    if "=" in line and not line.startswith("#"):
-                        k, v = line.strip().split("=", 1)
-                        os.environ.setdefault(k.strip(), v.strip())
-    token = os.getenv("TELEGRAM_BOT_TOKEN", "")
-    chat = os.getenv("TELEGRAM_CHAT_ID", "") or os.getenv("TELEGRAM_HOME_CHANNEL", "")
-    if token and chat:
-        try:
-            requests.post(f"https://api.telegram.org/bot{token}/sendMessage",
-                         json={"chat_id": chat, "text": text}, timeout=10)
-        except Exception as e:
-            _logger.warning(f"Telegram推送失败: {e}")
+    """推送开奖核对报告（通过统一推送模块）"""
+    import sys as _sys
+    _notifier_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "..", "彩灵交易系统")
+    if _notifier_path not in _sys.path:
+        _sys.path.insert(0, _notifier_path)
+    from notifier import push
+    push("六合彩", "开奖核对", body=text, level="normal")
 
 def fetch_latest_draw():
     try:

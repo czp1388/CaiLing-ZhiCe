@@ -21,6 +21,9 @@ import sys, os, json
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE)
+_NOTIFIER = os.path.join(os.path.dirname(BASE), "彩灵交易系统")
+if _NOTIFIER not in sys.path:
+    sys.path.insert(0, _NOTIFIER)
 
 
 def _is_human():
@@ -34,25 +37,9 @@ def _json(data):
 
 
 def _telegram_push(text):
-    """推送消息到Telegram"""
-    for env_path in [
-        os.path.expanduser("~/.hermes/.env"),
-        os.path.join(BASE, ".env"),
-    ]:
-        if os.path.exists(env_path):
-            with open(env_path) as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith("#") and "=" in line:
-                        k, v = line.split("=", 1)
-                        os.environ.setdefault(k.strip(), v.strip())
-    token = os.getenv("TELEGRAM_BOT_TOKEN", "")
-    chat = os.getenv("TELEGRAM_CHAT_ID", "") or os.getenv("TELEGRAM_HOME_CHANNEL", "")
-    if token and chat:
-        import requests as req
-        req.post(f"https://api.telegram.org/bot{token}/sendMessage",
-                json={"chat_id": chat, "text": text}, timeout=10)
-        return True
+    """推送消息到Telegram（通过统一推送模块）"""
+    from notifier import push
+    return push("看板", text, level="normal") or False
     return False
 
 

@@ -34,7 +34,28 @@ if os.path.exists(_bt_path):
         _BT = {}
 
 
+
+def _today_exists():
+    """检查今天是否已经推荐过相同的号码"""
+    try:
+        from core.database import get_db
+        conn = get_db()
+        conn.row_factory = __import__('sqlite3').Row
+        today = __import__('datetime').datetime.now().strftime("%Y-%m-%d")
+        rows = conn.execute(
+            "SELECT numbers FROM recommendations WHERE DATE(created_at)=?",
+            (today,)
+        ).fetchall()
+        conn.close()
+        if rows:
+            existing = [__import__('json').loads(r["numbers"]) if isinstance(r["numbers"], str) else r["numbers"] for r in rows]
+            return existing
+        return []
+    except:
+        return []
+
 def get_recommendation(seed=None, weights=None, mode="normal"):
+    existing = _today_exists()
     """综合所有分析，输出一个号码推荐
 
     默认seed为None → 自动按日期生成种子，每天推荐不同。
@@ -155,6 +176,19 @@ def get_recommendation(seed=None, weights=None, mode="normal"):
             recommended.add(n)
 
     final_numbers = sorted(list(recommended))
+    # 去重：如果今天已推荐过相同号码，换一组
+    if final_numbers in existing:
+        random.seed(hash(str(final_numbers) + str(__import__('time').time())))
+        recommended = set()
+        for s in hot_scores:
+            if len(recommended) >= 6:
+                break
+            recommended.add(s["number"])
+        while len(recommended) < 6:
+            n = random.randint(1, 49)
+            if n not in recommended:
+                recommended.add(n)
+        final_numbers = sorted(list(recommended))
 
     # 6. 统计指标
     hot_count = sum(1 for n in final_numbers if n in hot_nums)
