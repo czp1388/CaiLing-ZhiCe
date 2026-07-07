@@ -6,3 +6,6 @@ output/
 analysis/
 backups/
 .env
+
+logs/
+output/backtest_*.html
