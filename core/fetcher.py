@@ -58,9 +58,19 @@ def fetch_marksix_results(target_date, max_retries=2):
                     draw_date = target_date.strftime("%Y-%m-%d")
                     main = sorted(result[:6])
                     extra = result[6]
+                    # 推算期号：从数据库取最新期号+1
+                    _last_no = None
+                    try:
+                        from core.database import get_db as _get_db
+                        _conn = _get_db()
+                        _last_no = _conn.execute("SELECT draw_no FROM draws WHERE draw_no GLOB '0*' ORDER BY draw_no DESC LIMIT 1").fetchone()
+                        _conn.close()
+                    except:
+                        pass
+                    _new_no = str(int(_last_no[0]) + 1).zfill(6) if _last_no else "000001"
                     return {
                         "draw_date": draw_date,
-                        "draw_no": str(target_date.year) + target_date.strftime("%m%d"),
+                        "draw_no": _new_no,
                         "n1": main[0], "n2": main[1], "n3": main[2],
                         "n4": main[3], "n5": main[4], "n6": main[5],
                         "extra": extra,
@@ -135,8 +145,8 @@ def fetch_all(limit=200):
         result = fetch_marksix_results(d)
         if result:
             conn.execute("""
-                INSERT OR IGNORE INTO draws (draw_date, draw_no, n1, n2, n3, n4, n5, n6, extra)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT OR IGNORE INTO draws (draw_date, draw_no, n1, n2, n3, n4, n5, n6, extra, scraped_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
             """, (result["draw_date"], result["draw_no"],
                   result["n1"], result["n2"], result["n3"],
                   result["n4"], result["n5"], result["n6"],
