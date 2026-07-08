@@ -178,12 +178,20 @@ def get_recommendation(seed=None, weights=None, mode="normal"):
     final_numbers = sorted(list(recommended))
     # 去重：如果今天已推荐过相同号码，换一组
     if final_numbers in existing:
+        # 换种子 + 偏移选取位置（不从第1个热号开始）
         random.seed(hash(str(final_numbers) + str(__import__('time').time())))
+        offset = random.randint(1, 5)
         recommended = set()
-        for s in hot_scores:
+        for s in hot_scores[offset:]:
             if len(recommended) >= 6:
                 break
             recommended.add(s["number"])
+        # 如果热号不够，从冷号补
+        for num, days in miss_sorted:
+            if len(recommended) >= 6:
+                break
+            if num not in recommended:
+                recommended.add(num)
         while len(recommended) < 6:
             n = random.randint(1, 49)
             if n not in recommended:
