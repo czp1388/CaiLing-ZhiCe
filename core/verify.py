@@ -53,8 +53,28 @@ def _push_msg(text):
     push("六合彩", "开奖核对", body=text, level="normal")
 
 def fetch_latest_draw():
-    """从HKJC六合彩页面抓取最新开奖结果（自动重试3次）"""
+    """从HKJC官网抓取最新开奖结果（仅限开奖日21:00后执行）
+
+    规则：
+      - 开奖日前（<21:00）：返回"待开奖"标记，不写号码
+      - 开奖日后（>=21:00）：抓取号码并返回
+      - 非开奖日：返回None
+    """
     import time as _time
+    now = datetime.now()
+    date_str = now.strftime("%Y-%m-%d")
+
+    # 检查今天是否开奖日（周二/四/六）
+    if now.weekday() not in (1, 3, 5):
+        _logger.info(f"{date_str} 非开奖日，跳过")
+        return None
+
+    # 检查是否已过开奖时间（21:30开奖，21:00后可抓）
+    if now.hour < 21:
+        _logger.info(f"{date_str} 开奖日但未到21:00，返回待开奖标记")
+        return {"draw_date": date_str, "status": "scheduled"}
+
+    # 已过21:00，尝试抓取开奖结果
     for _attempt in range(3):
         try:
             from playwright.sync_api import sync_playwright
@@ -78,9 +98,9 @@ def fetch_latest_draw():
                 if nums and len(nums) >= 7:
                     main = sorted(nums[:6])
                     extra = nums[6]
-                    date_str = datetime.now().strftime("%Y-%m-%d")
                     return {"draw_date": date_str, "n1": main[0], "n2": main[1], "n3": main[2],
-                            "n4": main[3], "n5": main[4], "n6": main[5], "extra": extra}
+                            "n4": main[3], "n5": main[4], "n6": main[5], "extra": extra,
+                            "status": "drawn"}
             break
         except Exception as e:
             if _attempt < 2:
@@ -138,13 +158,27 @@ def check_and_update():
     if not draw:
         return {"status": "skipped", "reason": "开奖数据未获取到，请稍后再试"}
 
+    # 如果是"待开奖"状态（开奖日21:00前），插入占位记录但不写号码
+    if draw.get("status") == "scheduled":
+        dup = conn.execute("SELECT id FROM draws WHERE draw_date=?", (draw["draw_date"],)).fetchone()
+        if not dup:
+            # 推算期号
+            last_no = conn.execute("SELECT draw_no FROM draws WHERE draw_no GLOB '0*' ORDER BY draw_no DESC LIMIT 1").fetchone()
+            new_no = str(int(last_no[0]) + 1).zfill(6) if last_no else "000001"
+            conn.execute("INSERT INTO draws (draw_date,draw_no,n1,n2,n3,n4,n5,n6,extra,scraped_at) VALUES (?,?,NULL,NULL,NULL,NULL,NULL,NULL,NULL,datetime('now'))",
+                         (draw["draw_date"], new_no))
+            conn.commit()
+        conn.close()
+        _push_msg(f"🎯 今晚六合彩开奖（{draw['draw_date']}），结果将在21:30后更新")
+        return {"status": "scheduled", "draw_date": draw["draw_date"]}
+
     if draw["draw_date"] != latest_date:
         # 双重检查：确保此 draw_date 尚未入库
         dup = conn.execute("SELECT id FROM draws WHERE draw_date=?", (draw["draw_date"],)).fetchone()
         if dup:
             new_draw = False
         else:
-            conn.execute("INSERT INTO draws (draw_date,n1,n2,n3,n4,n5,n6,extra) VALUES (?,?,?,?,?,?,?,?)",
+            conn.execute("INSERT INTO draws (draw_date,n1,n2,n3,n4,n5,n6,extra,scraped_at) VALUES (?,?,?,?,?,?,?,?,datetime('now'))",
                          (draw["draw_date"], draw["n1"], draw["n2"], draw["n3"], draw["n4"], draw["n5"], draw["n6"], draw["extra"]))
             conn.commit()
             new_draw = True
