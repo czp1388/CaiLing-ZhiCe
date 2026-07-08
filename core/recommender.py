@@ -312,6 +312,10 @@ def get_recommendation(seed=None, weights=None, mode="normal"):
         "next_sum_range": next_sum["predicted_range"],
         "active_zone": active_zone,
         # 方案B：旋转矩阵（$160）
+        "plan_c": {
+            "description": "九码复式 — 选9个号，全组合84注$840",
+            "numbers": _generate_9code_revcommendation(hot_scores, miss_sorted),
+        },
         "plan_b": plan_b,
         "debug": {
             "hot_scores": hot_scores[:10],
@@ -320,8 +324,36 @@ def get_recommendation(seed=None, weights=None, mode="normal"):
     }
 
 
+
+def _generate_9code_revcommendation(hot_scores, miss_sorted):
+    """
+    生成九码复式推荐：选9个号码，全组合C(9,6)=84注
+    策略：热号前5 + 遗漏最大前4（冷热搭配）
+    """
+    random.seed(int(datetime.now().strftime("%Y%m%d")) * 10 + datetime.now().day % 7)
+    
+    # 从热号评分取前5
+    hot_top5 = [s["number"] for s in hot_scores[:5] if s["score"] > 0]
+    
+    # 从遗漏最大取4（避开已选的）
+    cold_top4 = []
+    for num, days in miss_sorted:
+        if num not in hot_top5:
+            cold_top4.append(num)
+        if len(cold_top4) >= 4:
+            break
+    
+    # 合并去重，确保9个
+    selected = list(dict.fromkeys(hot_top5 + cold_top4))
+    while len(selected) < 9:
+        n = random.randint(1, 49)
+        if n not in selected:
+            selected.append(n)
+    
+    return sorted(selected[:9])
+
+
 if __name__ == "__main__":
-    result = get_recommendation()
     if "--json" in sys.argv:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
