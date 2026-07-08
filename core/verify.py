@@ -53,38 +53,40 @@ def _push_msg(text):
     push("六合彩", "开奖核对", body=text, level="normal")
 
 def fetch_latest_draw():
-    # 自动重试3次，间隔递增
+    """从HKJC六合彩页面抓取最新开奖结果（自动重试3次）"""
     import time as _time
     for _attempt in range(3):
         try:
-        from playwright.sync_api import sync_playwright
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            page = browser.new_page()
-            page.goto("https://bet.hkjc.com/marksix/index.aspx?lang=ch", wait_until="domcontentloaded", timeout=30000)
-            break  # 成功则跳出重试循环
-            time.sleep(3)
-            nums = page.evaluate("""
-            () => {
-                try {
-                    const body = document.body.innerText;
-                    const matches = body.match(/\b([1-9]|[1-4][0-9])\b/g);
-                    if (matches && matches.length >= 7) {
-                        return matches.slice(0, 7).map(Number);
-                    }
-                    return null;
-                } catch(e) { return null; }
-            }
-            """)
-            browser.close()
-            if nums and len(nums) >= 7:
-                main = sorted(nums[:6])
-                extra = nums[6]
-                date_str = datetime.now().strftime("%Y-%m-%d")
-                return {"draw_date": date_str, "n1": main[0], "n2": main[1], "n3": main[2],
-                        "n4": main[3], "n5": main[4], "n6": main[5], "extra": extra}
-    except Exception as e:
-        _logger.warning(f"获取开奖数据失败: {e}")
+            from playwright.sync_api import sync_playwright
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                page = browser.new_page()
+                page.goto("https://bet.hkjc.com/marksix/index.aspx?lang=ch", wait_until="domcontentloaded", timeout=30000)
+                _time.sleep(3)
+                nums = page.evaluate("""() => {
+                    try {
+                        const body = document.body.innerText;
+                        const matches = body.match(/\\b([1-9]|[1-4][0-9])\\b/g);
+                        if (matches && matches.length >= 7) {
+                            return matches.slice(0, 7).map(Number);
+                        }
+                        return null;
+                    } catch(e) { return null; }
+                }
+                """)
+                browser.close()
+                if nums and len(nums) >= 7:
+                    main = sorted(nums[:6])
+                    extra = nums[6]
+                    date_str = datetime.now().strftime("%Y-%m-%d")
+                    return {"draw_date": date_str, "n1": main[0], "n2": main[1], "n3": main[2],
+                            "n4": main[3], "n5": main[4], "n6": main[5], "extra": extra}
+            break
+        except Exception as e:
+            if _attempt < 2:
+                _time.sleep((_attempt + 1) * 30)
+                continue
+            _logger.warning(f"获取开奖数据失败(重试{_attempt+1}次): {e}")
     return None
 
 
