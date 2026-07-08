@@ -165,7 +165,7 @@ def check_and_update():
             # 推算期号
             last_no = conn.execute("SELECT draw_no FROM draws WHERE draw_no GLOB '0*' ORDER BY draw_no DESC LIMIT 1").fetchone()
             new_no = str(int(last_no[0]) + 1).zfill(6) if last_no else "000001"
-            conn.execute("INSERT INTO draws (draw_date,draw_no,n1,n2,n3,n4,n5,n6,extra,scraped_at) VALUES (?,?,NULL,NULL,NULL,NULL,NULL,NULL,NULL,datetime('now'))",
+            conn.execute("INSERT INTO draws (draw_date,draw_no,n1,n2,n3,n4,n5,n6,extra,scraped_at) VALUES (?,?,0,0,0,0,0,0,0,datetime('now'))",
                          (draw["draw_date"], new_no))
             conn.commit()
         conn.close()
@@ -173,10 +173,17 @@ def check_and_update():
         return {"status": "scheduled", "draw_date": draw["draw_date"]}
 
     if draw["draw_date"] != latest_date:
-        # 双重检查：确保此 draw_date 尚未入库
-        dup = conn.execute("SELECT id FROM draws WHERE draw_date=?", (draw["draw_date"],)).fetchone()
+        # 双重检查：此日期可能已有占位记录（开奖前插入的scheduled）
+        dup = conn.execute("SELECT id, n1 FROM draws WHERE draw_date=?", (draw["draw_date"],)).fetchone()
         if dup:
-            new_draw = False
+            if dup["n1"] == 0:
+                # 已有占位记录，更新为真实号码
+                conn.execute("UPDATE draws SET n1=?,n2=?,n3=?,n4=?,n5=?,n6=?,extra=?,scraped_at=datetime('now') WHERE id=?",
+                             (draw["n1"], draw["n2"], draw["n3"], draw["n4"], draw["n5"], draw["n6"], draw["extra"], dup["id"]))
+                conn.commit()
+                new_draw = True
+            else:
+                new_draw = False
         else:
             conn.execute("INSERT INTO draws (draw_date,n1,n2,n3,n4,n5,n6,extra,scraped_at) VALUES (?,?,?,?,?,?,?,?,datetime('now'))",
                          (draw["draw_date"], draw["n1"], draw["n2"], draw["n3"], draw["n4"], draw["n5"], draw["n6"], draw["extra"]))
