@@ -69,12 +69,12 @@ def fetch_latest_draw():
         _logger.info(f"{date_str} 非开奖日，跳过")
         return None
 
-    # 检查是否已过开奖时间（21:30开奖，21:00后可抓）
-    if now.hour < 21:
-        _logger.info(f"{date_str} 开奖日但未到21:00，返回待开奖标记")
+    # 检查是否已过开奖时间（21:30开奖，21:45后才爬以确保页面已更新）
+    if now.hour < 21 or (now.hour == 21 and now.minute < 45):
+        _logger.info(f"{date_str} 开奖日但未到21:45，返回待开奖标记")
         return {"draw_date": date_str, "status": "scheduled"}
 
-    # 已过21:00，尝试抓取开奖结果
+    # 已过21:45，尝试抓取开奖结果
     for _attempt in range(3):
         try:
             from playwright.sync_api import sync_playwright
