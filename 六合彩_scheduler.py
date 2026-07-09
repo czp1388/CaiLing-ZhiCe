@@ -67,6 +67,25 @@ def run_daily():
     weekday = today.weekday()
     weekdays = ["一","二","三","四","五","六","日"]
     
+    # 数据变动检测：如果draws表最新数据比recommendations新，重新生成推荐
+    try:
+        import sqlite3
+        _lsix_db = Path.home() / "Desktop" / "彩灵·智策" / "data" / "marksix.db"
+        if _lsix_db.exists():
+            _conn = sqlite3.connect(str(_lsix_db))
+            _last_draw = _conn.execute("SELECT MAX(scraped_at) FROM draws").fetchone()[0]
+            _last_rec = _conn.execute("SELECT MAX(created_at) FROM recommendations").fetchone()[0]
+            _conn.close()
+            if _last_draw and _last_rec and _last_draw > _last_rec:
+                print(f"  🔄 检测到开奖数据更新(上次推荐{_last_rec[:10]})，重新生成推荐")
+                _sys.path.insert(0, str(LSIX))
+                from core.recommender import get_recommendation as _get_rec
+                from core.history import save_recommendation as _save_rec
+                _save_rec(_get_rec())
+                print(f"  ✅ 推荐已重新生成")
+    except Exception as _e:
+        print(f"  ⚠️ 数据变动检测失败: {_e}")
+    
     print(f"📅 六合彩调度: {date_str} 周{weekdays[weekday]}")
     
     # 检查是否开奖日
