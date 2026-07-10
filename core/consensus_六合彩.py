@@ -116,7 +116,7 @@ def consensus():
             results[name] = {"error": str(e)}
 
     # 共识计票：哪些号码至少被3个策略选中
-    threshold = 3
+    threshold = 2
     high_consensus = sorted(
         [(n, len(votes)) for n, votes in all_votes.items() if len(votes) >= threshold],
         key=lambda x: -x[1]
