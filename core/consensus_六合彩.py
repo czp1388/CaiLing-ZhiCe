@@ -175,4 +175,4 @@ if __name__ == "__main__":
             print(f"  {name}: ❌ {data['error']}")
         else:
             print(f"  {name}: {data['numbers']}")
-    print(f"\n共识规则: 4策略中≥3个同意才入选")
+    print(f"\n共识规则: 4策略中≥2个同意才入选(候选池扩至10个)")
