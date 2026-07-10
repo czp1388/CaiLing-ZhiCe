@@ -78,7 +78,7 @@ def run_daily():
             _conn.close()
             if _last_draw and _last_rec and _last_draw > _last_rec:
                 print(f"  🔄 检测到开奖数据更新(上次推荐{_last_rec[:10]})，重新生成推荐")
-                _sys.path.insert(0, str(LSIX))
+                sys.path.insert(0, str(BASE))
                 from core.recommender import get_recommendation as _get_rec
                 from core.history import save_recommendation as _save_rec
                 _save_rec(_get_rec())
